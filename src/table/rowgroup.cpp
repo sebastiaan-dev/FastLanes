@@ -14,25 +14,25 @@
 
 namespace fastlanes {
 
-void init_logial_columns(const ColumnDescriptors& footer, rowgroup_pt& columns);
+void init_logical_columns(const ColumnDescriptors& footer, rowgroup_pt& columns);
 
 // TODO [COPY] All return values here are copied to be put inside col_t variant. They should be moved.
-col_pt init_logial_columns(const ColumnDescriptor& col_descriptor) {
+col_pt init_logical_columns(const ColumnDescriptor& col_descriptor) {
 	switch (static_cast<DataType>(col_descriptor.data_type)) {
 	case DataType::LIST: {
 		auto uped_list   = make_unique<List>();
-		uped_list->child = init_logial_columns(*col_descriptor.children.begin());
+		uped_list->child = init_logical_columns(*col_descriptor.children.begin());
 		return uped_list;
 	}
 	case DataType::STRUCT: {
 		auto uped_struct = make_unique<Struct>();
-		init_logial_columns(col_descriptor.children, uped_struct->internal_rowgroup);
+		init_logical_columns(col_descriptor.children, uped_struct->internal_rowgroup);
 		return uped_struct;
 	}
 	case DataType::MAP: {
 		// MAP(KEY, VALUE) = LIST(STRUCT(KEY, VALUE))
 		auto uped_struct = make_unique<Struct>();
-		init_logial_columns(col_descriptor.children, uped_struct->internal_rowgroup);
+		init_logical_columns(col_descriptor.children, uped_struct->internal_rowgroup);
 
 		auto uped_list   = make_unique<List>();
 		uped_list->child = std::move(uped_struct);
@@ -71,17 +71,17 @@ col_pt init_logial_columns(const ColumnDescriptor& col_descriptor) {
 	return col_pt {};
 }
 
-void init_logial_columns(const ColumnDescriptors& footer, rowgroup_pt& columns) {
+void init_logical_columns(const ColumnDescriptors& footer, rowgroup_pt& columns) {
 	columns.reserve(footer.size());
 	for (const auto& col_descriptor : footer) {
-		columns.emplace_back(init_logial_columns(col_descriptor));
+		columns.emplace_back(init_logical_columns(col_descriptor));
 	}
 }
 
 Rowgroup::Rowgroup(const Footer& footer)
     : m_footer(footer)
     , n_tup(0) {
-	init_logial_columns(footer.GetColumnDescriptors(), internal_rowgroup);
+	init_logical_columns(footer.GetColumnDescriptors(), internal_rowgroup);
 }
 
 DataType Rowgroup::GetDataType(const idx_t col_idx) const {
@@ -219,95 +219,102 @@ void Rowgroup::Finalize() {
 	}
 }
 
-/*--------------------------------------------------------------------------------------------------------------------*\
- * Cast Check
-\*--------------------------------------------------------------------------------------------------------------------*/
-struct col_cast_visitor {
-	explicit col_cast_visitor(const ColumnDescriptor& column_descriptor)
-	    : column_descriptor(column_descriptor) {}
+/**
+ * Cast a string column to @c INT32.
+ *
+ * @param str_col Reference to the column which will be cast.
+ *
+ * @return A type cast column.
+ */
+static col_pt cast_fls_str_to_i32(const up<FLSStrColumn>& str_col) {
+	auto       casted_col = make_unique<TypedCol<i32_pt>>();
+	const auto n_tup      = str_col->length_arr.size();
 
-	col_pt operator()(up<FLSStrColumn>& str_col) {
-		auto       casted_col = make_unique<TypedCol<i32_pt>>();
-		const auto n_tup      = str_col->length_arr.size();
-		casted_col->data.resize(n_tup);
+	casted_col->data.resize(n_tup);
 
-		len_t cur_offset = 0;
-		for (n_t val_idx {0}; val_idx < n_tup; val_idx++) {
-			std::string str(reinterpret_cast<const char*>(&str_col->byte_arr[cur_offset]),
-			                str_col->length_arr[val_idx]);
-			auto        casted_string = std::stol(str);
-			casted_col->data[val_idx] = static_cast<i32_pt>(casted_string);
-			cur_offset += str_col->length_arr[val_idx];
-		}
-
-		casted_col->null_map_arr = str_col->null_map_arr;
-
-		return casted_col;
-	}
-	template <typename PT>
-	col_pt operator()(up<TypedCol<PT>>& col) {
-		if constexpr (!std::is_same_v<PT, str_pt> && !std::is_same_v<PT, bol_pt>) {
-			switch (column_descriptor.data_type) {
-			case DataType::INT8: {
-				auto       casted_col = make_unique<col_i08>();
-				const auto n_tup      = col->data.size();
-				casted_col->data.resize(n_tup);
-				for (n_t val_idx {0}; val_idx < n_tup; val_idx++) {
-					casted_col->data[val_idx] = static_cast<i08_pt>(col->data[val_idx]);
-				}
-				casted_col->null_map_arr = col->null_map_arr;
-				return casted_col;
-			}
-			case DataType::INT16: {
-				auto       casted_col = make_unique<col_i16>();
-				const auto n_tup      = col->data.size();
-				casted_col->data.resize(n_tup);
-				for (n_t val_idx {0}; val_idx < n_tup; val_idx++) {
-					casted_col->data[val_idx] = static_cast<i16_pt>(col->data[val_idx]);
-				}
-				casted_col->null_map_arr = col->null_map_arr;
-				return casted_col;
-			}
-			case DataType::INT32: {
-				auto       casted_col = make_unique<col_i32>();
-				const auto n_tup      = col->data.size();
-				casted_col->data.resize(n_tup);
-				for (n_t val_idx {0}; val_idx < n_tup; val_idx++) {
-					casted_col->data[val_idx] = static_cast<i32_pt>(col->data[val_idx]);
-				}
-				casted_col->null_map_arr = col->null_map_arr;
-				return casted_col;
-			}
-			case DataType::INT64: {
-				auto       casted_col = make_unique<col_i64>();
-				const auto n_tup      = col->data.size();
-				casted_col->data.resize(n_tup);
-				for (n_t val_idx {0}; val_idx < n_tup; val_idx++) {
-					casted_col->data[val_idx] = static_cast<i64_pt>(col->data[val_idx]);
-				}
-				casted_col->null_map_arr = col->null_map_arr;
-				return casted_col;
-			}
-			default:
-				FLS_UNREACHABLE();
-			}
-		} else {
-			FLS_UNREACHABLE()
-		}
+	len_t cur_offset = 0;
+	for (n_t val_idx {0}; val_idx < n_tup; val_idx++) {
+		std::string str(reinterpret_cast<const char*>(&str_col->byte_arr[cur_offset]), str_col->length_arr[val_idx]);
+		auto        casted_string = std::stol(str);
+		casted_col->data[val_idx] = static_cast<i32_pt>(casted_string);
+		cur_offset += str_col->length_arr[val_idx];
 	}
 
-	col_pt operator()(std::monostate&) { FLS_UNREACHABLE(); }
-	col_pt operator()(auto& arg) { FLS_UNREACHABLE_WITH_TYPE(arg); }
+	casted_col->null_map_arr = str_col->null_map_arr;
 
-	const ColumnDescriptor& column_descriptor;
-};
-
-col_pt cast_visit(rowgroup_pt& rowgroup, const ColumnDescriptor& column_descriptor) {
-	return visit(col_cast_visitor {column_descriptor}, rowgroup[column_descriptor.idx]);
+	return casted_col;
 }
 
+/**
+ * Casts a numerical column to a signed integer.
+ *
+ * @tparam SrcPT Incoming data type, which should be numerical.
+ * @tparam DstPT Target data type.
+ * @param src_col Reference to the column which will be cast with data_type.
+ *
+ * @return A type cast column.
+ */
+template <typename SrcPT, typename DstPT>
+static col_pt cast_numeric(up<TypedCol<SrcPT>>& src_col) {
+	auto       casted_col = make_unique<DstPT>();
+	const auto n_tup      = src_col->data.size();
+
+	casted_col->data.resize(n_tup);
+
+	for (n_t val_idx {0}; val_idx < n_tup; val_idx++) {
+		casted_col->data[val_idx] = static_cast<DstPT>(src_col->data[val_idx]);
+	}
+
+	casted_col->null_map_arr = src_col->null_map_arr;
+
+	return casted_col;
+}
+
+/**
+ * Casts a numerical column to a signed integer: @c INT8, @c INT16, @c INT32 or @c INT64.
+ *
+ * @tparam PT Incoming data type, which should be numerical.
+ * @param data_type The target data type.
+ * @param column Reference to the column which will be cast with data_type.
+ *
+ * @return A type cast column.
+ */
 template <typename PT>
-DataType getSmallestSignedType(PT min, PT max) {
+static col_pt cast_numeric_to_int(const DataType data_type, col_pt& column) {
+	return visit(overloaded {
+	                 [&](up<TypedCol<PT>>& col) {
+		                 switch (data_type) {
+		                 case DataType::INT8:
+			                 return cast_numeric<PT, i08_pt>(col);
+		                 case DataType::INT16:
+			                 return cast_numeric<PT, i16_pt>(col);
+		                 case DataType::INT32:
+			                 return cast_numeric<PT, i32_pt>(col);
+		                 case DataType::INT64:
+			                 return cast_numeric<PT, i64_pt>(col);
+		                 default:
+			                 FLS_UNREACHABLE();
+		                 }
+	                 },
+	                 [&](std::monostate&) { FLS_UNREACHABLE(); },
+	                 [&](auto& arg) { FLS_UNREACHABLE_WITH_TYPE(arg); },
+	             },
+	             column);
+}
+
+/**
+ * Get a (possibly) narrowed numerical type for a column inside the Rowgroup, based on the min and max value
+ * within that column.
+ *
+ * @tparam PT Incoming type, which should be numerical, excluding the boolean type.
+ * @param min Minimum value present in the column of the Rowgroup.
+ * @param max Maximum value present in the column of the Rowgroup.
+ *
+ * @return One of @c DataType::INT8, @c INT16, @c INT32, or @c INT64, chosen so that every value
+ * in [@c min, @c max] fits.
+ */
+template <typename PT>
+DataType getSmallestSignedType(const PT& min, const PT& max) {
 	if constexpr (!std::is_same_v<PT, string> && !std::is_same_v<PT, bool>) {
 		if (min >= std::numeric_limits<int8_t>::min() && max <= std::numeric_limits<int8_t>::max()) {
 			return DataType::INT8;
@@ -324,58 +331,65 @@ DataType getSmallestSignedType(PT min, PT max) {
 	}
 }
 
-void cast(rowgroup_pt& rowgroup, ColumnDescriptor& column_descriptor) {
-	bool should_be_cast {false};
+/**
+ * Determines the type of the incoming column, checks whether the values can be stored in a more
+ * narrow physical format than the incoming type, and applies the narrowing by casting the data into a new column.
+ * Otherwise, the column is kept as-is.
+ *
+ * @param column Reference to the column.
+ * @param descriptor Reference to th metadata of the column.
+ */
+void cast(col_pt& column, ColumnDescriptor& descriptor) {
+	auto& data_type = descriptor.data_type;
 
-	visit(overloaded {
-	          [&](up<FLSStrColumn>& string_col) {
-		          should_be_cast = string_col->m_stats.is_numeric;
-		          if (should_be_cast) {
-			          column_descriptor.data_type = DataType::INT32;
-		          }
-	          },
-	          [&]<typename PT>(up<TypedCol<PT>>& typed_col) {
-		          if (column_descriptor.data_type == DataType::DECIMAL) {
-			          column_descriptor.data_type = DataType::INT64;
-			          should_be_cast              = true;
-		          }
+	visit(overloaded {[&](const up<FLSStrColumn>& string_col) {
+		                  if (!string_col->m_stats.is_numeric) {
+			                  return;
+		                  }
 
-		          auto casted_data_type = getSmallestSignedType<PT>(typed_col->m_stats.min, typed_col->m_stats.max);
-		          if (casted_data_type != column_descriptor.data_type) {
-			          should_be_cast              = true;
-			          column_descriptor.data_type = casted_data_type;
-		          }
-	          },
-	          [&](up<TypedCol<dbl_pt>>& double_col) {
-		          auto is_double_castable = double_col->m_stats.is_double_castable;
-		          if (is_double_castable) {
-		           const auto casted_data_type =
-		               getSmallestSignedType<dbl_pt>(double_col->m_stats.min, double_col->m_stats.max);
-		           should_be_cast              = true;
-		           column_descriptor.data_type = casted_data_type;
-		          }
-	          },
-	          [&](up<Struct>& struct_col) {},
-	          [&](auto& arg) { FLS_UNREACHABLE_WITH_TYPE(arg) },
+		                  data_type = DataType::INT32;
+		                  column    = cast_fls_str_to_i32(string_col);
+	                  },
+
+	                  [&]<typename PT>(const up<TypedCol<PT>>& typed_col) {
+		                  // @todo: In the original code an incoming DataType::DECIMAL set the type to DataType::INT64,
+		                  // but this was always overwritten, what should happen?
+		                  const auto target_data_type =
+		                      getSmallestSignedType<PT>(typed_col->m_stats.min, typed_col->m_stats.max);
+
+		                  if (data_type != target_data_type) {
+			                  data_type = target_data_type;
+
+			                  column = cast_numeric_to_int<PT>(data_type, column);
+		                  }
+	                  },
+
+	                  [&](const up<TypedCol<dbl_pt>>& double_col) {
+		                  if (!double_col->m_stats.is_double_castable) {
+			                  return;
+		                  }
+
+		                  data_type = getSmallestSignedType<dbl_pt>(double_col->m_stats.min, double_col->m_stats.max);
+		                  column    = cast_numeric_to_int<dbl_pt>(data_type, column);
+	                  },
+
+	                  [&](up<Struct>& struct_col) { FLS_IMPLEMENT_THIS() },
+	                  [&](auto& arg) {
+		                  FLS_UNREACHABLE_WITH_TYPE(arg)
+	                  }
+
 	      },
-	      rowgroup[column_descriptor.idx]);
+	      column);
+};
 
-	if (should_be_cast) {
-		rowgroup[column_descriptor.idx] = cast_visit(rowgroup, column_descriptor);
-	}
-}
+void Rowgroup::Cast() {
+	const auto n_col = internal_rowgroup.size();
 
-void cast_check(rowgroup_pt& rowgroup, Footer& footer) {
-	const auto n_col = rowgroup.size();
-
-	// brute_force
 	for (n_t col_idx {0}; col_idx < n_col; col_idx++) {
-		auto& column_descriptor = footer[col_idx];
-		cast(rowgroup, column_descriptor);
+		auto& column_descriptor = m_footer[col_idx];
+		cast(internal_rowgroup[col_idx], column_descriptor);
 	}
 }
-
-void Rowgroup::Cast() { cast_check(internal_rowgroup, m_footer); }
 
 void Rowgroup::Init() {
 	for (n_t col_idx {0}; col_idx < m_footer.size(); col_idx++) {
@@ -383,6 +397,7 @@ void Rowgroup::Init() {
 		column_descriptor.idx   = col_idx;
 	}
 }
+
 /*--------------------------------------------------------------------------------------------------------------------*/
 void cast_from_logical_to_physical(const Rowgroup& old_table, Rowgroup& new_table) {
 	for (idx_t idx {0}; idx < old_table.ColCount(); ++idx) {
@@ -631,20 +646,11 @@ n_t Rowgroup::RowCount() const {
 	return n_tup;
 }
 
-n_t Rowgroup::VecCount() const {
-	//
-	return n_tup / CFG::VEC_SZ;
-}
+n_t Rowgroup::VecCount() const { return n_tup / CFG::VEC_SZ; }
 
-n_t Rowgroup::ColCount() const {
-	/**/
-	return m_footer.size();
-}
+n_t Rowgroup::ColCount() const { return m_footer.size(); }
 
-idx_t Rowgroup::LookUp(const string& name) const {
-	/**/
-	return m_footer.LookUp(name);
-}
+idx_t Rowgroup::LookUp(const string& name) const { return m_footer.LookUp(name); }
 
 /*--------------------------------------------------------------------------------------------------------------------*\
  * TypedColumnView

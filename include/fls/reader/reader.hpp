@@ -15,6 +15,9 @@ class Connection;
 class RowgroupView;
 class Rowgroup;
 /*--------------------------------------------------------------------------------------------------------------------*/
+/*!
+ * The reader
+ */
 class Reader {
 public:
 	explicit Reader(const path& dir_path, Connection& fls);

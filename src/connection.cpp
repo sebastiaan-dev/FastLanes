@@ -31,7 +31,6 @@ Connection::Connection(const Config& config) { m_config = make_unique<Config>(co
 Connection& Connection::read(const path& dir_path) {
 	FileSystem::check_if_dir_exists(dir_path);
 
-	// init
 	Dir  dir;
 	bool is_schema_found {false};
 	bool is_file_found {false};
@@ -70,14 +69,12 @@ Connection& Connection::read(const path& dir_path) {
 Reader& Connection::read_fls(const path& dir_path) {
 	FileSystem::check_if_dir_exists(dir_path);
 
-	// init
 	m_reader = make_unique<Reader>(dir_path, *this);
 
 	return *m_reader;
 }
 
 void Connection::verify_encoding() {
-	/**/
 	const RowgroupEncoder table_encoder(WITH_VERIFICATION);
 	table_encoder.Encode(*this);
 }
@@ -106,7 +103,6 @@ Connection& Connection::read(const Dir& dir) {
 
 void Connection::prepare_rowgroup() {
 	if (m_rowgroup == nullptr) {
-		/**/
 		throw std::runtime_error("Data is not loaded.");
 	}
 
@@ -119,7 +115,6 @@ void Connection::prepare_rowgroup() {
 
 Connection& Connection::spell() {
 	if (m_rowgroup == nullptr) {
-		/**/
 		throw std::runtime_error("Data is not loaded.");
 	}
 
@@ -129,15 +124,14 @@ Connection& Connection::spell() {
 }
 
 Connection& Connection::to_fls(const path& dir_path) {
+	// Check if the current connection has an in-memory FastLanes representation.
 	{
-		// check if data is loaded into memory
 		if (m_rowgroup == nullptr) {
 			throw std::runtime_error("Data is not loaded.");
 		}
 	}
 
 	{
-		// prepare_rowgroup
 		prepare_rowgroup();
 	}
 
@@ -187,13 +181,11 @@ bool Connection::is_forced_schema_pool() const { return m_config->is_forced_sche
 bool Connection::is_forced_schema() const { return m_config->is_forced_schema; }
 
 const vector<OperatorToken>& Connection::get_forced_schema_pool() const {
-	//
 	return m_config->forced_schema_pool;
 }
 
 Connection& Connection::force_schema_pool(const vector<OperatorToken>& operator_token) {
 	m_config->is_forced_schema_pool = true;
-
 	m_config->forced_schema_pool = operator_token;
 
 	return *this;
@@ -201,14 +193,12 @@ Connection& Connection::force_schema_pool(const vector<OperatorToken>& operator_
 
 Connection& Connection::force_schema(const vector<OperatorToken>& operator_token) {
 	m_config->is_forced_schema = true;
-
 	m_config->forced_schema = operator_token;
 
 	return *this;
 }
 
-const vector<OperatorToken>& Connection::get_forced_schema() const {
-	//
+const vector<OperatorToken>& Connection:: get_forced_schema() const {
 	return m_config->forced_schema;
 }
 
@@ -240,17 +230,14 @@ void Connection::encode_from_memory(void*           input_p,
 }
 
 void Connection::decode_to_memory(void* encoded_p, void* decoded_p, const DataType& data_type) {
-	// init
 	const io   encoded_io = make_unique<ExternalMemory>(encoded_p, 0);
 	io         decoded_io = make_unique<ExternalMemory>(decoded_p, 0);
 	const auto decoder    = make_unique<SingleColDecoder>(encoded_io, decoded_io, data_type);
 
-	// decode
 	decoder->full_decode();
 }
 
 Rowgroup& Connection::rowgroup() const {
-	//
 	return *m_rowgroup;
 }
 

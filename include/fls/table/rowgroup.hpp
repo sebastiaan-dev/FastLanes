@@ -175,6 +175,10 @@ public:
 	rowgroup_pt internal_rowgroup;
 };
 
+/*!
+ * The Rowgroup represents a horizontal slice of a table. When reading an external file format it is materialized fully,
+ * when reading a FastLanes file materialization is delayed until explicitly requested.
+ */
 class Rowgroup {
 public:
 	friend class LogicalExpr;
@@ -183,18 +187,23 @@ public:
 public:
 	explicit Rowgroup(const Footer& rowgroup_footer);
 
+	// Remove copy and move semantics are removed. -> TODO: Why?
 	Rowgroup(const Rowgroup&)             = delete;
 	Rowgroup& operator=(const Rowgroup&)  = delete;
 	Rowgroup(const Rowgroup&&)            = delete;
 	Rowgroup& operator=(const Rowgroup&&) = delete;
 
-	//
+	// Override the default equality -> TODO: Why not just boolean?
 	std::variant<bool, n_t> operator==(const Rowgroup& other_rowgroup) const;
 
 public:
-	///
+	//! @todo Seems that we want to separate this out of the Rowgroup class, as it muddles what the rowgroup is actually
+	//! responsible for.
+	//! Read the data from a CSV file into a Rowgroup.
 	void ReadCsv(const path& csv_path, char delimiter = '|', char terminator = '\n');
-	///
+	//! @todo Seems that we want to separate this out of the Rowgroup class, as it muddles what the rowgroup is actually
+	//! responsible for.
+	//! Read the data from a JSON file into a Rowgroup.
 	void ReadJson(const path& json_path);
 	///
 	void WriteJson(std::ostream& os) const;
@@ -213,19 +222,25 @@ public:
 	///
 	[[nodiscard]] up<Rowgroup> Project(const vector<idx_t>& idxs);
 	///
-	[[nodiscard]] up<Rowgroup> Project(const vector<string>& idxs);
+	[[nodiscard]] up<Rowgroup> Project(const vector<string>& col_names);
 	///
 	void GetStatistics();
 	///
 	void Finalize();
-	///
+	//! Visits all columns and checks whether the current type for each column can be narrowed down without losing data.
+	//! If so, it creates a column with the narrowed type and overwrites the old column.
 	void Cast();
-	///
+	//! Sets the idx of each column based on the order in the footer. This function should be called if and only if
+	//! a Rowgroup is constructed from an external file format.
+	//! @todo maybe make the reader abstract, make this init private, and then force the use of init.
 	void Init();
 
-public: /* Members */
+public:
+	//! The footer contains (indexed) metadata for the data stored in the Rowgroup.
 	Footer      m_footer;
+	//! The amount of materialized tuples as a multiple of VEC_SZ.
 	n_t         n_tup;
+	//! Pointer to the memory of the data of the Rowgroup, indexed by column.
 	rowgroup_pt internal_rowgroup;
 };
 
