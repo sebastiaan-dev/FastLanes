@@ -19,11 +19,11 @@
 #include "fls/table/dir.hpp"      // for Dir, FileT
 #include "fls/table/rowgroup.hpp" // for Rowgroup
 #include "fls/table/table.hpp"
-#include "fls/wizard/wizard.hpp" // for Wizard
-#include <filesystem>            // for directory_iterator, begin
-#include <memory>                // for make_unique, operator==
-#include <stdexcept>             // for runtime_error
-#include <string>                // for basic_string, string
+// #include "fls/wizard/wizard.hpp" // for Wizard
+#include <filesystem> // for directory_iterator, begin
+#include <memory>     // for make_unique, operator==
+#include <stdexcept>  // for runtime_error
+#include <string>     // for basic_string, string
 
 namespace fastlanes {
 
@@ -71,12 +71,11 @@ void Connection::prepare_table() const {
 
 void Connection::write_footer(const path& file_path) const {
 	// Write table descriptor
-
-	const n_t        table_descriptor_size = FlatBuffers::Write(*this, file_path, *m_table_descriptor);
+	const n_t        table_descriptor_size = FlatBuffers::Write(is_footer_inlined(), file_path, *m_table_descriptor);
 	const FileFooter file_footer {
 	    m_table_descriptor->m_table_binary_size, table_descriptor_size, Info::get_magic_bytes()};
 
-	FileFooter::Write(*this, file_path, file_footer);
+	FileFooter::Write(file_path, file_footer);
 }
 
 up<Connection> connect() {
@@ -89,7 +88,8 @@ Connection& Connection::spell() {
 		throw std::runtime_error("Data is not loaded.");
 	}
 
-	m_table_descriptor = Wizard::Spell(*this);
+	// FIXME
+	// m_table_descriptor = Wizard::Spell(*this);
 
 	return *this;
 }
@@ -114,7 +114,7 @@ Connection& Connection::to_fls(const path& file_path) {
 	FileHeader::Write(*this, file_path);
 
 	// encode
-	Encoder::encode(*this, file_path);
+	// Encoder::encode(*this, file_path);
 
 	// write the footer
 	write_footer(file_path);

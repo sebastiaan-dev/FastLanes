@@ -48,7 +48,7 @@ public:
 	friend class column;
 	friend class equal;
 	friend class RowgroupEncoder;
-	friend class Wizard;
+	// friend class Wizard;
 	friend class Encoder;
 	friend class CsvReader;
 	friend class Rowgroup;
