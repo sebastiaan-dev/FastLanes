@@ -111,7 +111,7 @@ up<Table> JsonReader::Read(const path& dir_path, const Connection& connection) {
 	std::ifstream jsonl_stream = FileSystem::open_r(found_jsonl_path.c_str());
 	string        line;
 
-	n_t n_tup {0};
+	n_t  n_tup {0};
 	auto max_n_tuple  = connection.m_config->n_vector_per_rowgroup * CFG::VEC_SZ;
 	auto cur_rowgroup = make_unique<Rowgroup>(rowgroup_descriptor);
 	while (getline(jsonl_stream, line)) {

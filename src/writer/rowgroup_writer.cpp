@@ -8,7 +8,7 @@ namespace fastlanes {
 
 static void fill_in(col_pt& col, const n_t how_many_to_fill) {
 	visit(overloaded {
-	          [&](const up<FLSStrColumn>& string_col) {
+	          [&](up<FLSStrColumn>& string_col) {
 		          const auto last_value_length = string_col->length_arr.back();
 
 		          for (n_t val_idx {0}; val_idx < how_many_to_fill; val_idx++) {

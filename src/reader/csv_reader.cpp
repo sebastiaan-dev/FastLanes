@@ -51,7 +51,7 @@ up<Table> CsvReader::Read(const path& dir_path, const Connection& connection) {
 	std::ifstream        csv_stream = FileSystem::open_r(found_csv_path.c_str());
 	aria::csv::CsvParser parser     = aria::csv::CsvParser(csv_stream).delimiter(delimiter).terminator(terminator);
 
-	n_t n_tup {0};
+	n_t  n_tup {0};
 	auto max_n_tuple  = connection.m_config->n_vector_per_rowgroup * CFG::VEC_SZ;
 	auto cur_rowgroup = make_unique<Rowgroup>(rowgroup_descriptor);
 	for (auto& tuple : parser) {
