@@ -1,9 +1,7 @@
 #ifndef FLS_ENCODER_ENCODER_HPP
 #define FLS_ENCODER_ENCODER_HPP
 
-#include "fls/footer/table_descriptor_generated.h"
-#include "fls/std/filesystem.hpp"
-#include "fls/table/table.hpp"
+#include "fls/table/rowgroup.hpp"
 
 namespace fastlanes {
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -13,7 +11,7 @@ class Buf;
 
 class Encoder {
 public:
-	static void encode(Table& table, TableDescriptorT& descriptor, const path& file_path);
+	static void encode_rowgroup(Buf& buf, const rowgroup_pt& rowgroup, RowgroupDescriptorT& footer);
 };
 } // namespace fastlanes
 
