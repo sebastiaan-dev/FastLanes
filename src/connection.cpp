@@ -84,6 +84,12 @@ Connection& Connection::to_fls(const path& file_path) {
 
 	writer->Close();
 
+	if (m_config->enable_verbose) {
+		fs::path json_file = file_path;
+		json_file += ".json";
+		JSON::write(*this, json_file, *m_table_descriptor);
+	}
+
 	return *this;
 }
 
@@ -168,6 +174,12 @@ Connection& Connection::set_n_vectors_per_rowgroup(n_t n_vector_per_rowgroup) {
 
 Connection& Connection::set_sample_size(n_t n_vecs) {
 	m_config->sample_size = n_vecs;
+	return *this;
+}
+
+Connection& Connection::enable_verbose() {
+	m_config->enable_verbose = true;
+
 	return *this;
 }
 

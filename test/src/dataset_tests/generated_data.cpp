@@ -48,6 +48,14 @@ TEST_F(FastLanesReaderTester, SINGLE_COLUMN_TIMESTAMP) {
 	TestCorrectness(GENERATED::SINGLE_COLUMN_TIMESTAMP);
 }
 
+TEST_F(FastLanesReaderTester, SINGLE_COLUMN_BYTE_ARRAY) {
+	TestCorrectness(GENERATED::SINGLE_COLUMN_BYTE_ARRAY);
+}
+
+TEST_F(FastLanesReaderTester, SINGLE_COLUMN_JPEG) {
+	TestCorrectness(GENERATED::SINGLE_COLUMN_JPEG);
+}
+
 // All Constants
 TEST_F(FastLanesReaderTester, ALL_CONSTANT) {
 	const vector<n_t> constant_cols = {0, 1, 2, 3, 4};

@@ -39,6 +39,7 @@ include(CMakePrintHelpers)
 set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 include(CTest)
 include(GNUInstallDirs)
+include(enable_sanitizer)
 
 # Checks : -------------------------------------------------------------------------------------------------------
 if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
@@ -173,6 +174,9 @@ if (true)
     message("-- FLS: Building FastLanes Lib.")
 
     # Source: ----------------------------------------------------------------------------------------------------------
+    if (FLS_BUILD_SHARED_LIBS)
+        message("-- FLS: Shared is enabled!")
+    endif ()
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 endif ()
@@ -259,18 +263,6 @@ if (FLS_BUILD_TESTING)
     message("---------------------------------------------------------------------------------------------------------")
     message("-- FLS: Build Testing.")
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/include)
-
-    # Helper to apply sanitizer flags only on non-Windows platforms
-    function(fls_enable_sanitizers target)
-        if (NOT WIN32)
-            target_compile_options(${target}
-                    PRIVATE -fsanitize=address -fsanitize=undefined)
-            target_link_options(${target}
-                    PRIVATE -fsanitize=address -fsanitize=undefined)
-        endif ()
-    endfunction()
-
-
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test)
 
 endif ()
