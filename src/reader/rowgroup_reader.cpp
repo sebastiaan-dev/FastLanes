@@ -69,7 +69,7 @@ const RowgroupDescriptorT& RowgroupReader::get_descriptor() const {
 
 up<Rowgroup> RowgroupReader::materialize() {
 	// TODO: Capacity is not used
-	auto               rowgroup_up = std::make_unique<Rowgroup>(m_rowgroup_descriptor, 0);
+	auto               rowgroup_up = std::make_unique<Rowgroup>(m_rowgroup_descriptor);
 	const Materializer materializer {*rowgroup_up};
 
 	for (n_t vec_idx {0}; vec_idx < m_rowgroup_descriptor.m_n_vec; vec_idx++) {

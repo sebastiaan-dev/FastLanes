@@ -13,7 +13,7 @@ public:
 		auto       fls_reader            = conn.reset().read_fls(dir_path / "data.fls");
 		auto       first_rowgroup_reader = fls_reader->get_rowgroup_reader(0);
 
-		const auto rowgroup_up = std::make_unique<Rowgroup>(first_rowgroup_reader->get_descriptor(), conn);
+		const auto rowgroup_up = std::make_unique<Rowgroup>(first_rowgroup_reader->get_descriptor());
 		// RandomAccessor random_accessor {*rowgroup_up};
 
 		auto start = std::chrono::high_resolution_clock::now();

@@ -50,6 +50,7 @@ public:
 	friend class RowgroupEncoder;
 	// friend class Wizard;
 	friend class Encoder;
+	friend class JsonReader;
 	friend class CsvReader;
 	friend class Rowgroup;
 

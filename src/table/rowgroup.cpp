@@ -86,17 +86,16 @@ void init_logical_columns(const ColumnDescriptors& footer, rowgroup_pt& columns)
 	}
 }
 
-Rowgroup::Rowgroup(const RowgroupDescriptorT& footer, n_t capacity)
+Rowgroup::Rowgroup(const RowgroupDescriptorT& footer)
     : m_descriptor(footer)
-    , n_tup(footer.m_n_tuples)
-    , capacity(capacity) {
+    , n_tup(footer.m_n_tuples) {
 	init_logical_columns(footer.m_column_descriptors, internal_rowgroup);
 }
 
 up<Rowgroup> Rowgroup::Project(const vector<idx_t>& idxs) {
 	/**/
 	FLS_IMPLEMENT_THIS()
-	// auto  result = make_unique<Rowgroup>(*m_descriptor.Project(idxs), connection);
+	// auto  result = make_unique<Rowgroup>(*m_descriptor.Project(idxs));
 	// idx_t c      = {0};
 	// for (const auto idx : idxs) {
 	// 	result->internal_rowgroup[c++] = std::move(internal_rowgroup[idx]);

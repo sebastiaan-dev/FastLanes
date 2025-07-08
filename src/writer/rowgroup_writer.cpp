@@ -45,7 +45,7 @@ RowGroupWriter::RowGroupWriter(FileWriter& file_writer)
 	}
 	row_group_descriptor->m_column_descriptors = std::move(cds);
 	// TODO: We don't use the max capacity, managed by the writer
-	owned_rowgroup  = make_unique<Rowgroup>(*row_group_descriptor, 0);
+	owned_rowgroup  = make_unique<Rowgroup>(*row_group_descriptor);
 	active_rowgroup = owned_rowgroup.get();
 	n_tuples_per_column.resize(file_writer.options.schema.size());
 }
