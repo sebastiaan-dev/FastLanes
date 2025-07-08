@@ -40,70 +40,70 @@ static bool IsNumeric(const string& val_str) {
 }
 
 void Ingest::FLSStringIngest(FLSStrColumn& fls_str_column, std::span<const str_pt> src_column) {
-		const auto count = src_column.size();
+	const auto count = src_column.size();
 
-		auto& byte_arr            = fls_str_column.byte_arr;
-		auto& ofs_arr             = fls_str_column.ofs_arr;
-		auto& max_n_bytes_p_value = fls_str_column.m_stats.maximum_n_bytes_p_value;
-		auto& length_arr          = fls_str_column.length_arr;
-		auto& is_numeric          = fls_str_column.m_stats.is_numeric;
+	auto& byte_arr            = fls_str_column.byte_arr;
+	auto& ofs_arr             = fls_str_column.ofs_arr;
+	auto& max_n_bytes_p_value = fls_str_column.m_stats.maximum_n_bytes_p_value;
+	auto& length_arr          = fls_str_column.length_arr;
+	auto& is_numeric          = fls_str_column.m_stats.is_numeric;
 
-		auto& fsst_byte_arr   = fls_str_column.fsst_byte_arr;
-		auto& fsst_length_arr = fls_str_column.fsst_length_arr;
+	auto& fsst_byte_arr   = fls_str_column.fsst_byte_arr;
+	auto& fsst_length_arr = fls_str_column.fsst_length_arr;
 
-		if (length_arr.empty()) {
-			is_numeric = true;
+	if (length_arr.empty()) {
+		is_numeric = true;
+	}
+
+	for (idx_t i = 0; i < count; i++) {
+		const str_pt& value = src_column[i];
+		if (value.size() > CFG::String::max_bytes_per_string) {
+			throw std::runtime_error("String of size " + std::to_string(value.size()) +
+			                         " exceeds the maximum allowed size of " +
+			                         std::to_string(CFG::String::max_bytes_per_string) + " bytes.");
+		}
+		const bool is_null = value == TypedNull<str_pt>();
+
+		fls_str_column.null_map_arr.push_back(is_null);
+		string current_val;
+		if (!is_null) {
+			current_val                          = value;
+			fls_str_column.m_stats.last_seen_val = current_val;
+		} else {
+			current_val = fls_str_column.m_stats.last_seen_val;
 		}
 
-		for (idx_t i = 0; i < count; i++) {
-			const str_pt& value = src_column[i];
-			if (value.size() > CFG::String::max_bytes_per_string) {
-				throw std::runtime_error("String of size " + std::to_string(value.size()) +
-				                         " exceeds the maximum allowed size of " +
-				                         std::to_string(CFG::String::max_bytes_per_string) + " bytes.");
-			}
-			const bool is_null = value == TypedNull<str_pt>();
+		if (is_numeric && !is_null && !isValidUint64(current_val)) {
+			is_numeric = false;
+		}
 
-			fls_str_column.null_map_arr.push_back(is_null);
-			string current_val;
+		const size_t old_size = byte_arr.size(); // Save the current size
+		ofs_arr.push_back(static_cast<ofs_t>(byte_arr.size()));
+		byte_arr.resize(byte_arr.size() + current_val.size());
+		std::memcpy(byte_arr.data() + old_size, current_val.data(), current_val.size());
+		length_arr.push_back(static_cast<len_t>(current_val.size()));
+
+		// calculate maximum size of a value
+		max_n_bytes_p_value = (max_n_bytes_p_value > current_val.size()) ? max_n_bytes_p_value : current_val.size();
+		is_numeric          = is_numeric && IsNumeric(value);
+
+		// FSST
+		{
+			// check if it NULL
 			if (!is_null) {
 				current_val                          = value;
 				fls_str_column.m_stats.last_seen_val = current_val;
 			} else {
-				current_val = fls_str_column.m_stats.last_seen_val;
+				current_val = "";
 			}
 
-			if (is_numeric && !is_null && !isValidUint64(current_val)) {
-				is_numeric = false;
-			}
-
-			const size_t old_size = byte_arr.size(); // Save the current size
-			ofs_arr.push_back(static_cast<ofs_t>(byte_arr.size()));
-			byte_arr.resize(byte_arr.size() + current_val.size());
-			std::memcpy(byte_arr.data() + old_size, current_val.data(), current_val.size());
-			length_arr.push_back(static_cast<len_t>(current_val.size()));
-
-			// calculate maximum size of a value
-			max_n_bytes_p_value = (max_n_bytes_p_value > current_val.size()) ? max_n_bytes_p_value : current_val.size();
-			is_numeric          = is_numeric && IsNumeric(value);
-
-			// FSST
-			{
-				// check if it NULL
-				if (!is_null) {
-					current_val                          = value;
-					fls_str_column.m_stats.last_seen_val = current_val;
-				} else {
-					current_val = "";
-				}
-
-				// push
-				const size_t fsst_old_size = fsst_byte_arr.size(); // Save the current size
-				fsst_byte_arr.resize(fsst_byte_arr.size() + current_val.size());
-				std::memcpy(fsst_byte_arr.data() + fsst_old_size, current_val.data(), current_val.size());
-				fsst_length_arr.push_back(static_cast<len_t>(current_val.size()));
-			}
+			// push
+			const size_t fsst_old_size = fsst_byte_arr.size(); // Save the current size
+			fsst_byte_arr.resize(fsst_byte_arr.size() + current_val.size());
+			std::memcpy(fsst_byte_arr.data() + fsst_old_size, current_val.data(), current_val.size());
+			fsst_length_arr.push_back(static_cast<len_t>(current_val.size()));
 		}
 	}
+}
 
 } // namespace fastlanes

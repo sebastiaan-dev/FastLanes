@@ -10,8 +10,7 @@ namespace fastlanes {
 
 FileWriter::FileWriter(WriterOptions&& opts)
     : options(std::move(opts)) {
-
-    };
+}
 
 void FileWriter::Open() {
 	table_descriptor = make_unique<TableDescriptorT>();

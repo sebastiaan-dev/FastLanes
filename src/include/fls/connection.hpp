@@ -115,9 +115,10 @@ public:
 
 public:
 	// TODO(duckdb): Change the API
-	up<Table>            m_table;
+	up<Table> m_table;
+
 private:
-	up<Config>           m_config;
+	up<Config> m_config;
 
 	up<TableDescriptorT> m_table_descriptor;
 };

@@ -111,10 +111,10 @@ up<Table> JsonReader::Read(const path& dir_path, const Connection& connection) {
 	std::ifstream jsonl_stream = FileSystem::open_r(found_jsonl_path.c_str());
 	string        line;
 
-	n_t  n_tup {0};
+	n_t n_tup {0};
 	// TODO: capacity is really max_n_tuple, this shouldn't be part of the row group as it is more a policy on how to
 	// handle a row group.
-	auto max_n_tuple = CFG::N_VEC_PER_RG * CFG::VEC_SZ;
+	auto max_n_tuple  = CFG::N_VEC_PER_RG * CFG::VEC_SZ;
 	auto cur_rowgroup = make_unique<Rowgroup>(rowgroup_descriptor, max_n_tuple);
 	while (getline(jsonl_stream, line)) {
 		const auto tuple = nlohmann::json::parse(line);

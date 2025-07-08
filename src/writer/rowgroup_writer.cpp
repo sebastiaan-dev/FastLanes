@@ -55,7 +55,7 @@ RowGroupWriter::RowGroupWriter(FileWriter& file_writer, Rowgroup& rowgroup)
     , active_rowgroup(&rowgroup) {
 
 	n_tuples_per_column.resize(rowgroup.ColCount());
-	for (auto& column: n_tuples_per_column) {
+	for (auto& column : n_tuples_per_column) {
 		column = rowgroup.RowCount();
 	}
 }

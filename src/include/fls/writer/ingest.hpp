@@ -3,7 +3,6 @@
 
 #include "fls/common/double.hpp"
 #include "fls/table/rowgroup.hpp"
-
 #include <span>
 #include <string>
 
