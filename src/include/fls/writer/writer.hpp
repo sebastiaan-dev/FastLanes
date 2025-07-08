@@ -5,6 +5,7 @@
 #include "fls/io/io.hpp"
 #include "fls/std/filesystem.hpp"
 #include "fls/table/rowgroup.hpp"
+#include <mutex>
 
 namespace fastlanes {
 
