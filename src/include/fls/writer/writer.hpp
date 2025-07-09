@@ -126,6 +126,11 @@ public:
 			return *this;
 		}
 
+		Builder& WithSampleSize(const n_t n_vecs) {
+			options.sample_size = n_vecs;
+			return *this;
+		}
+
 		Builder& WithExplicitFlush() {
 			options.explicit_flush = true;
 			return *this;
