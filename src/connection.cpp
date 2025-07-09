@@ -77,12 +77,12 @@ Connection& Connection::to_fls(const path& file_path) {
 
 	if (is_forced_schema()) {
 		const auto& pool = get_forced_schema();
-		writer_builder.WithForcedSchema(vector(pool));
+		writer_builder.WithForcedSchema(std::vector(pool));
 	}
 
 	if (is_forced_schema_pool()) {
 		const auto& pool = get_forced_schema_pool();
-		writer_builder.WithForcedSchemaPool(vector(pool));
+		writer_builder.WithForcedSchemaPool(std::vector(pool));
 	}
 
 	const auto writer = writer_builder.Build();
