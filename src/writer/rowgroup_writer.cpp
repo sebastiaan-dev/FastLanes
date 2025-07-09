@@ -58,6 +58,21 @@ RowGroupWriter::RowGroupWriter(FileWriter& file_writer, Rowgroup& rowgroup)
 	for (auto& column : n_tuples_per_column) {
 		column = rowgroup.RowCount();
 	}
+
+	// If we get the rowgroup passed from within FastLanes, we cannot rely on the tuple count.
+	// Check the size per column to get the actual assigned size.
+	for (n_t col_idx {0}; col_idx < rowgroup.ColCount(); col_idx++) {
+		auto& n_tuples = n_tuples_per_column[col_idx];
+		visit(overloaded {
+		          [&](up<FLSStrColumn>& string_col) { n_tuples = string_col->length_arr.size(); },
+		          [&]<typename PT>(up<TypedCol<PT>>& typed_col) { n_tuples = typed_col->data.size(); },
+		          [&](up<Struct>& struct_col) {
+
+		          },
+		          [&](auto& arg) { FLS_UNREACHABLE_WITH_TYPE(arg) },
+		      },
+		      rowgroup.internal_rowgroup[col_idx]);
+	}
 }
 
 RowGroupWriter::~RowGroupWriter() {
@@ -71,8 +86,9 @@ void RowGroupWriter::Finalize() {
 	auto& rg = GetRowGroup();
 
 	// Fill in the values up to the used vector size.
-	for (n_t col_idx {0}; col_idx < rg.internal_rowgroup.size(); col_idx++) {
-		auto&     col_pt   = rg.internal_rowgroup[col_idx];
+	for (n_t col_idx {0}; col_idx < rg.ColCount(); col_idx++) {
+		auto& col_pt = rg.internal_rowgroup[col_idx];
+
 		const n_t leftover = n_tuples_per_column[col_idx] % file_writer.options.vector_size;
 		if (leftover == 0) {
 			continue;
