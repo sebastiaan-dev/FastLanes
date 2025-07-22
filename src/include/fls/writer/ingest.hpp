@@ -3,7 +3,6 @@
 
 #include "fls/common/double.hpp"
 #include "fls/table/rowgroup.hpp"
-
 #include <span>
 #include <string>
 
@@ -83,7 +82,15 @@ struct Ingest {
 
 		for (idx_t i = 0; i < count; i++) {
 			PT         value   = src_column[i];
-			const bool is_null = value == TypedNull<PT>();
+			bool is_null;
+
+			// FIXME: Currently a number is never NULL because we cannot distinguish between NULL and the 0 value.
+			if constexpr (std::is_same_v<PT, str_pt>) {
+				is_null = value == TypedNull<PT>();
+			} else {
+				is_null = false;
+			}
+
 			null_ptr[i]        = is_null;
 
 			if (is_null) {

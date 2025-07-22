@@ -1,13 +1,14 @@
 cmake_minimum_required(VERSION 3.22)
 
 # Requirements : -------------------------------------------------------------------------------------------------------
-find_program(CLANG_CXX NAMES clang++ REQUIRED)
-find_program(CLANG_C NAMES clang REQUIRED)
+if (NOT (CMAKE_C_COMPILER_ID STREQUAL "Clang"
+        OR CMAKE_C_COMPILER_ID STREQUAL "AppleClang"))
+    find_program(CLANG_C NAMES clang REQUIRED)
+    find_program(CLANG_CXX NAMES clang++ REQUIRED)
 
-if (CLANG_CXX AND CLANG_C)
-    # Set Clang as the compiler explicitly
-    set(CMAKE_C_COMPILER "${CLANG_C}" CACHE STRING "C Compiler" FORCE)
-    set(CMAKE_CXX_COMPILER "${CLANG_CXX}" CACHE STRING "C++ Compiler" FORCE)
+    # Cache-and-force it so that downstream targets see it too
+    set(CMAKE_C_COMPILER "${CLANG_C}" CACHE STRING "C compiler" FORCE)
+    set(CMAKE_CXX_COMPILER "${CLANG_CXX}" CACHE STRING "C++ compiler" FORCE)
 endif ()
 
 #  ---------------------------------------------------------------------------------------------------------------------
@@ -39,6 +40,7 @@ include(CMakePrintHelpers)
 set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 include(CTest)
 include(GNUInstallDirs)
+include(enable_sanitizer)
 
 # Checks : -------------------------------------------------------------------------------------------------------
 if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
@@ -173,6 +175,9 @@ if (true)
     message("-- FLS: Building FastLanes Lib.")
 
     # Source: ----------------------------------------------------------------------------------------------------------
+    if (FLS_BUILD_SHARED_LIBS)
+        message("-- FLS: Shared is enabled!")
+    endif ()
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 endif ()
@@ -259,18 +264,6 @@ if (FLS_BUILD_TESTING)
     message("---------------------------------------------------------------------------------------------------------")
     message("-- FLS: Build Testing.")
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/include)
-
-    # Helper to apply sanitizer flags only on non-Windows platforms
-    function(fls_enable_sanitizers target)
-        if (NOT WIN32)
-            target_compile_options(${target}
-                    PRIVATE -fsanitize=address -fsanitize=undefined)
-            target_link_options(${target}
-                    PRIVATE -fsanitize=address -fsanitize=undefined)
-        endif ()
-    endfunction()
-
-
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test)
 
 endif ()

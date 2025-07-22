@@ -52,10 +52,8 @@ up<Table> CsvReader::Read(const path& dir_path, const Connection& connection) {
 	aria::csv::CsvParser parser     = aria::csv::CsvParser(csv_stream).delimiter(delimiter).terminator(terminator);
 
 	n_t  n_tup {0};
-	// TODO: capacity is really max_n_tuple, this shouldn't be part of the row group as it is more a policy on how to
-	// handle a row group.
-	auto max_n_tuple = CFG::N_VEC_PER_RG * CFG::VEC_SZ;
-	auto cur_rowgroup = make_unique<Rowgroup>(rowgroup_descriptor, max_n_tuple);
+	auto max_n_tuple  = connection.m_config->n_vector_per_rowgroup * CFG::VEC_SZ;
+	auto cur_rowgroup = make_unique<Rowgroup>(rowgroup_descriptor);
 	for (auto& tuple : parser) {
 		for (uint64_t col_idx {0}; auto& val : tuple) {
 			[[maybe_unused]] const auto n_cols = cur_rowgroup->ColCount();
@@ -66,10 +64,10 @@ up<Table> CsvReader::Read(const path& dir_path, const Connection& connection) {
 		}
 		n_tup = n_tup + 1;
 
-		if (n_tup == cur_rowgroup->capacity) {
+		if (n_tup == max_n_tuple) {
 			cur_rowgroup->n_tup = n_tup;
 			table->m_rowgroups.push_back(std::move(cur_rowgroup));
-			cur_rowgroup = make_unique<Rowgroup>(rowgroup_descriptor, max_n_tuple);
+			cur_rowgroup = make_unique<Rowgroup>(rowgroup_descriptor);
 			n_tup        = 0;
 		}
 	}

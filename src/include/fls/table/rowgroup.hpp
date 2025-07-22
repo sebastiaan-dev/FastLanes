@@ -150,6 +150,7 @@ public:
 
 public:
 	uint8_t**       string_p;
+	uint8_t*        byte_arr_p;
 	len_t*          length_ptr;
 	const n_t*      ttl_size_ptr;
 	n_t             vec_idx;
@@ -198,7 +199,7 @@ public:
 	friend class column;
 
 public:
-	explicit Rowgroup(const RowgroupDescriptorT& rowgroup_footer, n_t capacity);
+	explicit Rowgroup(const RowgroupDescriptorT& rowgroup_footer);
 
 	Rowgroup(const Rowgroup&)             = delete;
 	Rowgroup& operator=(const Rowgroup&)  = delete;
@@ -243,7 +244,6 @@ public: /* Members */
 	RowgroupDescriptorT m_descriptor;
 	n_t                 n_tup;
 	rowgroup_pt         internal_rowgroup;
-	const n_t           capacity;
 };
 
 std::ostream& operator<<(std::ostream& output, const Rowgroup& mini_arrow);

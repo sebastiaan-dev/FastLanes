@@ -6,9 +6,9 @@
 #include "fls/expression/expression_executor.hpp" // for ExprExecutor
 #include "fls/expression/interpreter.hpp"         // for Interpreter
 #include "fls/expression/physical_expression.hpp" // for PhysicalExpr
-#include "fls/std/vector.hpp"     // for vector
-#include "fls/table/rowgroup.hpp" // for Rowgroup
-#include <memory> // for unique_ptr
+#include "fls/std/vector.hpp"                     // for vector
+#include "fls/table/rowgroup.hpp"                 // for Rowgroup
+#include <memory>                                 // for unique_ptr
 
 namespace fastlanes {
 

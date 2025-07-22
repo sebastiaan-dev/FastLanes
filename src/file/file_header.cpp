@@ -7,7 +7,7 @@
 namespace fastlanes {
 
 void FileHeader::Write(io& io, const fls_bool inline_footer) {
-	 // TODO[io]
+	// TODO[io]
 	FileHeader file_header {};
 
 	file_header.magic_bytes            = Info::get_magic_bytes();

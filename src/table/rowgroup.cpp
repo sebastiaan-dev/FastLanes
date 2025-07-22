@@ -56,7 +56,7 @@ col_pt init_logical_columns(const ColumnDescriptorT& col_descriptor) {
 	case DataType::FLOAT:
 		return make_unique<flt_col_t>();
 	case DataType::STR:
-		return make_unique<str_col_t>();
+		FLS_UNREACHABLE()
 	case DataType::DOUBLE:
 		return make_unique<dbl_col_t>();
 	case DataType::FALLBACK:
@@ -67,6 +67,12 @@ col_pt init_logical_columns(const ColumnDescriptorT& col_descriptor) {
 		return make_unique<col_i32>();
 	case DataType::TIMESTAMP:
 		return make_unique<col_i64>();
+	case DataType::BYTE_ARRAY:
+		return make_unique<FLSStrColumn>();
+	case DataType::JPEG:
+		return make_unique<FLSStrColumn>();
+	case DataType::BOOLEAN:
+		return make_unique<u08_col_t>();
 	default:
 		FLS_UNREACHABLE();
 	}
@@ -82,17 +88,16 @@ void init_logical_columns(const ColumnDescriptors& footer, rowgroup_pt& columns)
 	}
 }
 
-Rowgroup::Rowgroup(const RowgroupDescriptorT& footer, n_t capacity)
+Rowgroup::Rowgroup(const RowgroupDescriptorT& footer)
     : m_descriptor(footer)
-    , n_tup(footer.m_n_tuples)
-    , capacity(capacity) {
+    , n_tup(footer.m_n_tuples) {
 	init_logical_columns(footer.m_column_descriptors, internal_rowgroup);
 }
 
 up<Rowgroup> Rowgroup::Project(const vector<idx_t>& idxs) {
 	/**/
 	FLS_IMPLEMENT_THIS()
-	// auto  result = make_unique<Rowgroup>(*m_descriptor.Project(idxs), connection);
+	// auto  result = make_unique<Rowgroup>(*m_descriptor.Project(idxs));
 	// idx_t c      = {0};
 	// for (const auto idx : idxs) {
 	// 	result->internal_rowgroup[c++] = std::move(internal_rowgroup[idx]);
@@ -381,7 +386,7 @@ void Rowgroup::Cast() {
 }
 
 void Rowgroup::Init() {
-	for (n_t col_idx {0}; col_idx < m_descriptor.m_size; col_idx++) {
+	for (n_t col_idx {0}; col_idx < m_descriptor.m_column_descriptors.size(); col_idx++) {
 		auto& column_descriptor = m_descriptor.m_column_descriptors[col_idx];
 		column_descriptor->idx  = col_idx;
 	}
@@ -715,6 +720,7 @@ FlsStrColumnView::FlsStrColumnView(const col_pt& column)
 		                                  fsst_string_p   = fls_str_column->fsst_str_p_arr.data();
 		                                  fsst_length_ptr = fls_str_column->fsst_length_arr.data();
 		                                  fls_string_p    = fls_str_column->fls_str_arr.data();
+		                                  byte_arr_p      = fls_str_column->byte_arr.data();
 
 		                                  return fls_str_column->m_stats;
 	                                  },
