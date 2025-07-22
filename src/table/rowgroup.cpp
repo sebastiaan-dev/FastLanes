@@ -71,6 +71,8 @@ col_pt init_logical_columns(const ColumnDescriptorT& col_descriptor) {
 		return make_unique<FLSStrColumn>();
 	case DataType::JPEG:
 		return make_unique<FLSStrColumn>();
+	case DataType::BOOLEAN:
+		return make_unique<u08_col_t>();
 	default:
 		FLS_UNREACHABLE();
 	}
@@ -384,7 +386,7 @@ void Rowgroup::Cast() {
 }
 
 void Rowgroup::Init() {
-	for (n_t col_idx {0}; col_idx < m_descriptor.m_size; col_idx++) {
+	for (n_t col_idx {0}; col_idx < m_descriptor.m_column_descriptors.size(); col_idx++) {
 		auto& column_descriptor = m_descriptor.m_column_descriptors[col_idx];
 		column_descriptor->idx  = col_idx;
 	}
