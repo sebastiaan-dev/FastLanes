@@ -10,8 +10,13 @@ run-name: >-
 
 on:
   push:
+    branches: [ main, dev, integration/duckdb ]
+    tags: [ '**' ]
   pull_request:
-    branches: [ main, dev ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ────────────────────────────────────────────────────────
@@ -20,10 +25,15 @@ jobs:
   fetch-content:
     name: CMake / FetchContent example
     runs-on: ubuntu-latest
+    env:
+      CMAKE_GENERATOR: Ninja
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      - name: Detect CPU count
+        run: make detect-cpu | tee -a "$GITHUB_ENV"
 
       - name: Install LLVM
         uses: ./.github/actions/install-llvm
@@ -44,7 +54,7 @@ jobs:
             -DFLS_ENABLE_VERBOSE_OUTPUT=ON \
             -DFASTLANES_REPOSITORY=${{ github.event.pull_request.head.repo.clone_url || format('https://github.com/{0}.git', github.repository) }} \
             -DFASTLANES_TAG=${{ github.event.pull_request.head.sha || github.sha }}
-          cmake --build . --parallel
+          cmake --build . --parallel "$BUILD_THREADS"
 
       - name: Run C++ example
         working-directory: examples/fetch_content_example/build

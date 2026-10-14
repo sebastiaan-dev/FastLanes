@@ -3,403 +3,106 @@
 # ────────────────────────────────────────────────────────
 # .github/workflows/cpp.yaml
 # ────────────────────────────────────────────────────────
+# Primary PR coverage; older images and macOS Debug/lint live in compatibility.yaml.
 name: CPP
 run-name: >-
   ${{ github.workflow }} on ${{ github.ref_name }} (#${{ github.run_number }})
   — ${{ github.event.pull_request.title || github.event.head_commit.message }}
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Events
-# ──────────────────────────────────────────────────────────────────────────────
 on:
   push:
+    branches: [ main, dev, integration/duckdb ]
+    tags: [ '**' ]
   pull_request:
-    branches: [ "main", "dev" ]
+  workflow_dispatch:
 
-# Cancel in-flight runs on the same branch/PR so we do not waste minutes
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Global env (tweak once, use everywhere)
-env:
-  CMAKE_GENERATOR: Ninja            # much faster than Makefiles
-
 jobs:
-  # ──────────────────────────────────────────────────────────────────────────────
-  # 1️⃣  Format-check (quick)
-  # ──────────────────────────────────────────────────────────────────────────────
   check-format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Detect CPU count
-        shell: bash
         run: make detect-cpu | tee -a "$GITHUB_ENV"
-
+      - name: Test CI helpers
+        run: python3 -m unittest discover -s scripts/ci -p 'test_*.py'
       - name: Run format check
         run: make format-check
 
-  # ──────────────────────────────────────────────────────────────────────────────
-  # 2️⃣  Main build + clang-tidy (Linux + macOS + Windows)
-  # ──────────────────────────────────────────────────────────────────────────────
   build:
     needs: check-format
+    name: build (${{ matrix.platform }}, ${{ matrix.build_type }})
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - ubuntu-24.04
-          - ubuntu-22.04
-          - ubuntu-24.04-arm
-          - ubuntu-22.04-arm
-          - macos-15
-          - macos-14
-          - macos-15-intel
-        build_type: [ Debug, Release ]
-        cxx: [ clang++ ]
-        shared_lib: [ false, true ]
-
-        # 🛑 Skip the flaky public-preview runner (arm64 Debug + shared)
-        # GitHub’s ubuntu-24.04-arm image is still in public beta (burstable capacity),
-        # which can terminate long jobs with “The runner has received a shutdown signal”
-        # → exit-code 143. See:
-        # https://github.blog/changelog/2024-06-24-github-actions-ubuntu-24-04-image-now-available-for-arm64-runners/
-        # See also Issue #11541: “Intermittent segmentation faults on Ubuntu 24.04 ARM”
-        # — ~15% of runs on ubuntu-24.04-arm see segfaults or pre-emptions mid-build
-        exclude:
+        include:
+          - platform: ubuntu-24.04
+            build_type: Debug
+            tests: false
+            install_artifact: false
+          - platform: ubuntu-24.04
+            build_type: Release
+            tests: true
+            install_artifact: true
           - platform: ubuntu-24.04-arm
             build_type: Debug
-            shared_lib: true
+            tests: false
+            install_artifact: false
+          - platform: ubuntu-24.04-arm
+            build_type: Release
+            tests: true
+            install_artifact: false
+          - platform: macos-latest
+            build_type: Release
+            tests: true
+            install_artifact: true
+          - platform: windows-latest
+            build_type: Release
+            tests: false
+            install_artifact: true
+    uses: ./.github/workflows/cpp-build.yml
+    with:
+      platform: ${{ matrix.platform }}
+      build-type: ${{ matrix.build_type }}
+      tests: ${{ matrix.tests }}
+      install-artifact: ${{ matrix.install_artifact }}
 
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Detect CPU count
-        shell: bash
-        run: make detect-cpu | tee -a "$GITHUB_ENV"
-
-      - name: Install LLVM
-        uses: ./.github/actions/install-llvm
-
-      - name: Print clang/clang-tidy version
-        run: |
-          clang --version
-          clang-tidy --version
-
-      # ----------------------------------------------------------------------
-      # Configure (runs clang-tidy via CMake)
-      # ----------------------------------------------------------------------
-      - name: Configure (with clang-tidy checks)
-        shell: bash
-        run: |
-          cmake -S "${{ github.workspace }}" \
-                -B build_${{ matrix.build_type }}_${{ matrix.shared_lib }} \
-                -DFLS_ENABLE_VERBOSE_OUTPUT=ON \
-                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                -DFLS_ENABLE_CLANG_TIDY=ON \
-                -DFLS_BUILD_SHARED_LIBS=${{ matrix.shared_lib }} \
-                -DFLS_ENABLE_INSTALL=OFF \
-                -DCMAKE_C_COMPILER=clang \
-                -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
-
-      - name: Build (clang-tidy runs automatically)
-        run: cmake --build build_${{ matrix.build_type }}_${{ matrix.shared_lib }} -j $BUILD_THREADS
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # 3️⃣  IWYU build (Linux only)
-  # ──────────────────────────────────────────────────────────────────────────────
-  #  build-iwyu:
-  #    needs: build
-  #    strategy:
-  #      matrix:
-  #        build_type: [ Debug, Release ]
-  #    runs-on: ubuntu-latest
-  #
-  #    steps:
-  #      - uses: actions/checkout@v4
-  #      - name: Detect CPU count
-  #        shell: bash
-  #        run: make detect-cpu | tee -a "$GITHUB_ENV"
-  #      - name: Cache IWYU build
-  #        uses: actions/cache@v4
-  #        with:
-  #          path: build_iwyu_${{ matrix.build_type }}
-  #          key: ${{ runner.os }}-iwyu-${{ matrix.build_type }}-${{ hashFiles('CMakeLists.txt', '**/*.cmake', '**/*.[ch]pp', '**/*.h') }}
-  #          restore-keys: |
-  #            ${{ runner.os }}-iwyu-${{ matrix.build_type }}-
-  #      - name: Configure (IWYU)
-  #        run: |
-  #          cmake -S ${{ github.workspace }} \
-  #                -B build_iwyu_${{ matrix.build_type }} \
-  #                -DFLS_ENABLE_IWYU=ON \
-  #                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-  #                -DCMAKE_C_COMPILER=clang \
-  #                -DCMAKE_CXX_COMPILER=clang++
-  #      - name: Build (IWYU)
-  #        run: cmake --build build_iwyu_${{ matrix.build_type }} -j $BUILD_THREADS
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # 4️⃣  Synthetic-dataset generator (Python, cached pip)
-  # ──────────────────────────────────────────────────────────────────────────────
-  generate_dataset:
-    needs: build
+  # Both NDEBUG states and linkage definitions, on Linux x64 and ARM.
+  clang-tidy:
     strategy:
+      fail-fast: false
       matrix:
-        platform:
-          - ubuntu-24.04
-          - ubuntu-22.04
-          - ubuntu-24.04-arm
-          - ubuntu-22.04-arm
-          - macos-15
-          - macos-14
-          - macos-15-intel
-    runs-on: ${{ matrix.platform }}
+        include:
+          - platform: ubuntu-24.04
+            build_type: Debug
+            shared: 'OFF'
+          - platform: ubuntu-24.04-arm
+            build_type: Release
+            shared: 'ON'
+    uses: ./.github/workflows/cpp-lint.yml
+    with:
+      platform: ${{ matrix.platform }}
+      build-type: ${{ matrix.build_type }}
+      shared: ${{ matrix.shared }}
 
+  # Stable required check, independent of matrix/reusable-job check names.
+  cpp-ci:
+    if: always()
+    needs: [ check-format, build, clang-tidy ]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Detect CPU count
-        shell: bash
-        run: make detect-cpu | tee -a "$GITHUB_ENV"
-
-      - name: Generate synthetic dataset
-        uses: ./.github/actions/generate-dataset
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # 5️⃣  Example build & run
-  # ──────────────────────────────────────────────────────────────────────────────
-  example:
-#    needs: build
-    strategy:
-      matrix:
-        platform: [ ubuntu-latest, macos-latest, windows-latest ]
-        build_type: [ Release ]
-        cxx: [ clang++ ]
-        shared_lib: [ false, true ]
-    runs-on: ${{ matrix.platform }}
-
-    defaults:
-      run:
-        shell: bash
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Detect CPU count
-        shell: bash
-        run: make detect-cpu | tee -a "$GITHUB_ENV"
-
-      - name: Install LLVM
-        uses: ./.github/actions/install-llvm
-
-      - name: Configure example
+      - name: Require all C++ checks to pass
+        env:
+          FORMAT_RESULT: ${{ needs.check-format.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          TIDY_RESULT: ${{ needs.clang-tidy.result }}
         run: |
-          CMAKE_ARGS=(
-            -S "${{ github.workspace }}"
-            -B "build_${{ matrix.build_type }}_${{ matrix.shared_lib }}"
-            -DFLS_BUILD_EXAMPLES=ON
-            -DFLS_ENABLE_VERBOSE_OUTPUT=ON
-            -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}"
-            -DFLS_BUILD_SHARED_LIBS=${{ matrix.shared_lib }}
-            -DFLS_ENABLE_INSTALL=OFF
-            -DCMAKE_C_COMPILER=clang
-            -DCMAKE_CXX_COMPILER="${{ matrix.cxx }}"
-          )
-          # Use static MSVC runtime on Windows to avoid ASAN/UBSAN mismatch
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            CMAKE_ARGS+=(-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded)
-          fi
-          cmake "${CMAKE_ARGS[@]}"
-
-      - name: Build example
-        run: cmake --build "build_${{ matrix.build_type }}_${{ matrix.shared_lib }}" --parallel
-
-      - name: Run cpp_example
-        shell: bash
-        run: |
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./build_${{ matrix.build_type }}_${{ matrix.shared_lib }}/examples/cpp_example.exe
-          else
-            ./build_${{ matrix.build_type }}_${{ matrix.shared_lib }}/examples/cpp_example
-          fi
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # 6️⃣  Tests (Linux + macOS, Release only)
-  # ──────────────────────────────────────────────────────────────────────────────
-  test:
-#    needs: build
-    name: test (${{ matrix.platform }}, ${{ matrix.build_type }}, ${{ matrix.shared_lib && 'shared' || 'static' }})
-    strategy:
-      matrix:
-        platform:
-          - ubuntu-24.04
-          - ubuntu-22.04
-          - ubuntu-24.04-arm
-          - ubuntu-22.04-arm
-          - macos-15
-          - macos-14
-          - macos-15-intel
-        build_type: [ Release ]
-        shared_lib: [ false, true ]
-    runs-on: ${{ matrix.platform }}
-
-    defaults:
-      run:
-        shell: bash  # Use bash on all platforms to avoid PowerShell issues on Windows
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      # Map the boolean shared_lib into a human-friendly label
-      - name: Determine lib label
-        run: |
-          if [[ "${{ matrix.shared_lib }}" == "true" ]]; then
-            echo "LIB_LABEL=shared" >> $GITHUB_ENV
-          else
-            echo "LIB_LABEL=static" >> $GITHUB_ENV
-          fi
-
-      - name: Detect CPU count
-        run: make detect-cpu | tee -a "$GITHUB_ENV"
-
-      - name: Generate synthetic dataset
-        uses: ./.github/actions/generate-dataset
-
-      - name: Install LLVM
-        uses: ./.github/actions/install-llvm
-
-      - name: Configure tests
-        run: |
-          # Build directory uses our human-friendly label
-          BUILD_DIR="test_build_${LIB_LABEL}"
-          CMAKE_ARGS=(
-            -S "${{ github.workspace }}"
-            -B "${BUILD_DIR}"
-            -DFLS_BUILD_TESTING=ON
-            -DFLS_ENABLE_VERBOSE_OUTPUT=ON
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-            -DFLS_BUILD_SHARED_LIBS=${{ matrix.shared_lib }}
-            -DFLS_ENABLE_INSTALL=OFF
-            -DCMAKE_C_COMPILER=clang
-            -DCMAKE_CXX_COMPILER=clang++
-          )
-          # On Windows, use static MSVC runtime to prevent ASAN/UBSAN mismatch
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            CMAKE_ARGS+=(-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded)
-          fi
-          cmake "${CMAKE_ARGS[@]}"
-
-      - name: Build tests
-        run: |
-          # Use the same labeled build directory
-          cmake --build "test_build_${LIB_LABEL}" -j $BUILD_THREADS
-
-      - name: Run tests
-        working-directory: "test_build_${{ env.LIB_LABEL }}"
-        run: |
-          # Exclude Quick-Fuzz tests from the normal suite
-          ctest -j $BUILD_THREADS \
-                --stop-on-failure \
-                --output-on-failure \
-                --timeout 5000 \
-                -E "QuickFuzz"
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # 7️⃣  Install job
-  # ──────────────────────────────────────────────────────────────────────────────
-  install:
-    needs: test
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-        shared_lib: [ false, true ]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Detect CPU count
-        shell: bash
-        run: make detect-cpu | tee -a "$GITHUB_ENV"
-
-      # Use the same LLVM toolchain as the other jobs
-      - name: Install LLVM toolchain
-        uses: ./.github/actions/install-llvm
-
-      - name: Configure + build + install
-        shell: bash
-        run: |
-          CMAKE_ARGS=(
-            -S "${{ github.workspace }}"
-            -B build_${{ matrix.shared_lib }}
-            -G "${CMAKE_GENERATOR}"
-            -DCMAKE_C_COMPILER=clang
-            -DCMAKE_CXX_COMPILER=clang++
-            -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_INSTALL_PREFIX=build_${{ matrix.shared_lib }}/install
-            -DFLS_BUILD_SHARED_LIBS=${{ matrix.shared_lib }}
-            -DFLS_ENABLE_INSTALL=ON
-          )
-          # Use static MSVC runtime on Windows to avoid ASAN/UBSAN mismatch
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            CMAKE_ARGS+=(-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded)
-          fi
-          cmake "${CMAKE_ARGS[@]}"
-          cmake --build build_${{ matrix.shared_lib }} --target install -j $BUILD_THREADS
-
-      - name: Verify installed header files
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          SOURCE_INCLUDE=src/include
-          INSTALL_INCLUDE=build_${{ matrix.shared_lib }}/install/include
-
-          # 1) fail fast if the install tree isn't there
-          if [[ ! -d "$INSTALL_INCLUDE" ]]; then
-            echo "❌ Error: '$INSTALL_INCLUDE' directory not found"
-            exit 1
-          fi
-
-          # 2) show what *did* get installed
-          echo "✅ Found install include directory; installed headers:"
-          find "$INSTALL_INCLUDE" -type f -print
-
-          # 3) walk every .h/.hpp under your source include/, check its counterpart
-          missing=()
-          while IFS= read -r -d '' src; do
-            rel="${src#./}"
-            if [[ ! -f "$INSTALL_INCLUDE/$rel" ]]; then
-              missing+=("$rel")
-            fi
-          done < <(
-            cd "$SOURCE_INCLUDE"
-            find . -type f \( -name '*.h' -o -name '*.hpp' \) -print0
-          )
-
-          # 4) report & fail if anything’s missing
-          if (( ${#missing[@]} > 0 )); then
-            echo "❌ Missing expected header(s):"
-            for hdr in "${missing[@]}"; do
-              echo "   • $hdr"
-            done
-            exit 1
-          fi
-
-          echo "✅ All expected headers are present."
-
-      - name: Upload C++ install tree
-        uses: actions/upload-artifact@v4
-        with:
-          name: fastlanes-cpp-install-${{ matrix.os }}-shared-${{ matrix.shared_lib }}
-          path: build_${{ matrix.shared_lib }}/install
+          test "$FORMAT_RESULT" = success
+          test "$BUILD_RESULT" = success
+          test "$TIDY_RESULT" = success

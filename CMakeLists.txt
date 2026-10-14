@@ -136,6 +136,15 @@ option(FLS_ENABLE_VERBOSE_OUTPUT "Enable verbose output" OFF)
 option(FLS_ENABLE_DATA "Enable Data" OFF)
 option(FLS_ENABLE_FSST_TESTING_AND_BENCHMARKING "Build FSST" OFF)
 option(FLS_ENABLE_GALP_TESTING_AND_BENCHMARKING "Build GALP" OFF)
+option(FLS_ENABLE_LINE_TABLES_ONLY "Use line-table-only C++ debug info in Debug and RelWithDebInfo" OFF)
+
+if (FLS_ENABLE_LINE_TABLES_ONLY)
+    # CI needs symbolized stacks, not interactive inspection of local variables.
+    # Keep optimization/assertion settings unchanged and leave developer builds
+    # at their normal debug-info level unless this option is explicitly enabled.
+    add_compile_options(
+            "$<$<AND:$<CONFIG:Debug,RelWithDebInfo>,$<COMPILE_LANG_AND_ID:CXX,Clang,AppleClang>>:-gline-tables-only>")
+endif ()
 
 # Definitions: ---------------------------------------------------------------------------------------------------------
 add_compile_definitions(FLS_CMAKE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")

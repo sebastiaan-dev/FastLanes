@@ -1,0 +1,91 @@
+# ────────────────────────────────────────────────────────
+# |                      FastLanes                       |
+# ────────────────────────────────────────────────────────
+# .github/actions/build-cpp/action.yml
+# ────────────────────────────────────────────────────────
+name: Build and validate C++
+description: Reconfigure one Ninja tree, then validate this library configuration before reusing its objects
+inputs:
+  build-type:
+    description: CMake build type
+    required: true
+  shared:
+    description: Build a shared library (ON or OFF)
+    required: true
+  tests:
+    description: Build and run the C++ tests (ON or OFF)
+    default: 'OFF'
+  standalone-tests:
+    description: Build and run regressions without GoogleTest or external datasets (ON or OFF)
+    default: 'OFF'
+  examples:
+    description: Build and run the C++ example (ON or OFF)
+    default: 'OFF'
+  install:
+    description: Install and verify the public headers (ON or OFF)
+    default: 'OFF'
+
+runs:
+  using: composite
+  steps:
+    - name: Configure
+      shell: bash
+      env:
+        BUILD_TYPE: ${{ inputs.build-type }}
+        SHARED: ${{ inputs.shared }}
+        TESTS: ${{ inputs.tests }}
+        STANDALONE_TESTS: ${{ (inputs.tests == 'ON' || inputs.standalone-tests == 'ON') && 'ON' || 'OFF' }}
+        EXAMPLES: ${{ inputs.examples }}
+        INSTALL: ${{ inputs.install }}
+      run: |
+        args=(
+          -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DFLS_ENABLE_CLANG_TIDY=OFF
+          -DFLS_ENABLE_LINE_TABLES_ONLY=ON
+          -DFLS_BUILD_SHARED_LIBS="$SHARED"
+          -DFLS_BUILD_TESTING="$TESTS"
+          -DFLS_BUILD_STANDALONE_TESTS="$STANDALONE_TESTS"
+          -DFLS_BUILD_EXAMPLES="$EXAMPLES"
+          -DFLS_ENABLE_INSTALL="$INSTALL"
+        )
+        if [[ "$RUNNER_OS" == Windows ]]; then
+          args+=(-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded)
+        fi
+        cmake "${args[@]}"
+
+    - name: Build
+      shell: bash
+      run: cmake --build build --parallel "$BUILD_THREADS"
+
+    - name: Test
+      if: inputs.tests == 'ON' || inputs.standalone-tests == 'ON'
+      shell: bash
+      run: |
+        # The standalone negative tests intentionally abort in Debug.
+        ulimit -c 0
+        ctest --test-dir build --parallel "$BUILD_THREADS" \
+          --stop-on-failure --output-on-failure --timeout 5000 -E QuickFuzz
+
+    - name: Run C++ example
+      if: inputs.examples == 'ON'
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == Windows ]]; then
+          ./build/examples/cpp_example.exe
+        else
+          ./build/examples/cpp_example
+        fi
+
+    # Use separate staging trees: a shared install must not pass validation
+    # because a preceding static install happened to leave files behind.
+    - name: Install
+      if: inputs.install == 'ON'
+      shell: bash
+      env:
+        SHARED: ${{ inputs.shared }}
+      run: |
+        cmake --install build --prefix "$PWD/build/install-$SHARED"
+        python3 scripts/ci/verify_install.py src/include "build/install-$SHARED/include"

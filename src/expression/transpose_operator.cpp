@@ -33,6 +33,7 @@ enc_transpose_opr<PT>::enc_transpose_opr(const PhysicalExpr& expr,
                                          ColumnDescriptorT&  column_descriptor,
                                          InterpreterState&   state) {
 
+	const auto& input = expr.operators[state.cur_operator++];
 	visit(overloaded {
 	          [&](const sp<enc_uncompressed_opr<PT>>& opr) {
 		          data = opr->data;
@@ -62,9 +63,9 @@ enc_transpose_opr<PT>::enc_transpose_opr(const PhysicalExpr& expr,
 	          [&]<typename VALUE_PT>(const sp<enc_dict_map_opr<VALUE_PT, PT>>& opr) { data = opr->index_arr; },
 	          [&]<typename VALUE_PT>(const sp<enc_rle_map_opr<VALUE_PT, PT>>& opr) { data = opr->rle_idxs; },
 	          [&](std::monostate&) { FLS_UNREACHABLE(); },
-	          [&](auto& arg) { FLS_UNREACHABLE_WITH_TYPE(arg); },
+	          [&](auto&) { ThrowUnexpectedPhysicalOperator(input, __FILE__, __LINE__); },
 	      },
-	      expr.operators[state.cur_operator++]);
+	      input);
 }
 
 template <typename PT>
@@ -84,32 +85,18 @@ template struct enc_transpose_opr<i64_pt>;
  * dec_transpose_opr
 \*--------------------------------------------------------------------------------------------------------------------*/
 template <typename PT>
-struct TransposeExprVisitor {
-	explicit TransposeExprVisitor(dec_transpose_opr<PT>& opr)
-	    : trapose_opr(opr) {
-	}
-
-	void operator()(const sp<dec_rsum_opr<PT>>& opr) {
-		trapose_opr.transposed_data = opr->idxs;
-		FLS_ASSERT_NOT_NULL_POINTER(trapose_opr.transposed_data)
-	}
-	void operator()(std::monostate& arg) {
-		FLS_UNREACHABLE_WITH_TYPE(arg);
-	}
-	void operator()(const auto& arg) {
-		FLS_UNREACHABLE_WITH_TYPE(arg);
-	}
-
-	dec_transpose_opr<PT>& trapose_opr;
-};
-
-template <typename PT>
 dec_transpose_opr<PT>::dec_transpose_opr(PhysicalExpr&     physical_expr,
                                          const ColumnView& column_view,
                                          InterpreterState& state)
     : transposed_data(nullptr) {
 
-	visit(TransposeExprVisitor<PT> {*this}, physical_expr.operators.back());
+	const auto& input = physical_expr.operators.back();
+	if (const auto* rsum = std::get_if<sp<dec_rsum_opr<PT>>>(&input)) {
+		transposed_data = (*rsum)->idxs;
+		FLS_ASSERT_NOT_NULL_POINTER(transposed_data)
+	} else {
+		ThrowUnexpectedPhysicalOperator(input, __FILE__, __LINE__);
+	}
 }
 
 template <typename PT>

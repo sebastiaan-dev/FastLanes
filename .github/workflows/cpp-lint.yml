@@ -1,0 +1,54 @@
+# ────────────────────────────────────────────────────────
+# |                      FastLanes                       |
+# ────────────────────────────────────────────────────────
+# .github/workflows/cpp-lint.yml
+# ────────────────────────────────────────────────────────
+name: Reusable C++ lint
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        type: string
+        required: true
+      build-type:
+        type: string
+        required: true
+      shared:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  clang-tidy:
+    runs-on: ${{ inputs.platform }}
+    env:
+      CMAKE_GENERATOR: Ninja
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect CPU count
+        run: make detect-cpu | tee -a "$GITHUB_ENV"
+      - name: Install LLVM
+        uses: ./.github/actions/install-llvm
+      - name: Configure compilation database
+        env:
+          BUILD_TYPE: ${{ inputs.build-type }}
+          SHARED: ${{ inputs.shared }}
+        run: |
+          cmake -S . -B build-tidy \
+            -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DFLS_BUILD_SHARED_LIBS="$SHARED" \
+            -DFLS_ENABLE_INSTALL=OFF \
+            -DFLS_ENABLE_CLANG_TIDY=ON
+      - name: Run clang-tidy
+        run: |
+          # Match CXX_CLANG_TIDY exclusions in src/cor/prm/{fsst,fsst12}.
+          # Analyze compile commands without compiling/linking another library.
+          run-clang-tidy -p build-tidy -j "$BUILD_THREADS" \
+            -quiet -config-file "$GITHUB_WORKSPACE/.clang-tidy" \
+            '/src/(?!cor/prm/fsst(12)?/)'
