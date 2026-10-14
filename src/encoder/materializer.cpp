@@ -30,11 +30,27 @@
 #include <cstdint>
 #include <cstring>     // for std::memcpy
 #include <type_traits> // for std::make_signed_t
+#include <utility>
+#include <variant>
 
 namespace fastlanes {
 
 Materializer::Materializer(Rowgroup& rowgroup)
     : rowgroup(rowgroup) {
+}
+
+namespace {
+
+void MaterializeOperator(const physical_operator& opr, col_pt& col, n_t vec_idx);
+
+[[noreturn]] void ThrowMaterializationMismatch(const physical_operator& opr, const col_pt& col) {
+	const auto operator_type =
+	    std::visit([](const auto& arg) { return type_name<std::decay_t<decltype(arg)>>(); }, opr);
+	const auto column_type = std::visit([](const auto& arg) { return type_name<std::decay_t<decltype(arg)>>(); }, col);
+	const auto msg = "[FLS] UNREACHABLE with unexpected types: " + operator_type + " and " + column_type + " at " +
+	                 __FILE__ + ":" + std::to_string(__LINE__);
+	FLS_ABORT(msg.c_str())
+	throw std::runtime_error(msg);
 }
 
 struct material_visitor {
@@ -89,24 +105,18 @@ struct material_visitor {
 		}
 	}
 	template <typename PT>
-	void operator()(const sp<PhysicalExpr>& expr, up<TypedCol<PT>>& typed_col) const {
-		auto visitor = [this, &typed_col](auto&& arg) {
-			(*this)(std::forward<decltype(arg)>(arg), typed_col);
-		};
-		visit(visitor, expr->operators[expr->operators.size() - 1]);
+	static const physical_operator& NestedOperator(const sp<PhysicalExpr>& expr, const up<TypedCol<PT>>&) {
+		return expr->operators[expr->operators.size() - 1];
 	}
-	void operator()(const sp<PhysicalExpr>& expr, up<FLSStrColumn>& typed_col) const {
-		auto visitor = [this, &typed_col](auto&& arg) {
-			(*this)(std::forward<decltype(arg)>(arg), typed_col);
-		};
-		visit(visitor, expr->operators[0]);
+	static const physical_operator& NestedOperator(const sp<PhysicalExpr>& expr, const up<FLSStrColumn>&) {
+		return expr->operators[0];
 	}
 	void operator()(const sp<dec_struct_opr>& struct_expr, up<Struct>& struct_col) const {
 		for (n_t expr_idx {0}; expr_idx < struct_expr->internal_exprs.size(); ++expr_idx) {
-			visit(material_visitor {vec_idx},
-			      struct_expr->internal_exprs[expr_idx]
-			          ->operators[struct_expr->internal_exprs[expr_idx]->operators.size() - 1],
-			      struct_col->internal_rowgroup[expr_idx]);
+			MaterializeOperator(struct_expr->internal_exprs[expr_idx]
+			                        ->operators[struct_expr->internal_exprs[expr_idx]->operators.size() - 1],
+			                    struct_col->internal_rowgroup[expr_idx],
+			                    vec_idx);
 		}
 	}
 	void operator()(const sp<dec_fls_str_uncompressed_opr>& opr, up<FLSStrColumn>& str_col) const {
@@ -184,12 +194,61 @@ struct material_visitor {
 	void operator()(const sp<dec_validitymask_opr>& opr, up<TypedCol<uint8_t>>& typed_col) const {
 		opr->Materialize(vec_idx, *typed_col);
 	}
-	void operator()(const auto& opr, auto& col) const {
-		FLS_UNREACHABLE_WITH_TYPES(opr, col);
-	}
-	//
+	// There is intentionally no catch-all materialization overload: invocability
+	// below is the single source of truth for accepted operator/column pairs.
 	n_t vec_idx;
 };
+
+template <typename Col, typename Opr>
+bool TryMaterialize(const material_visitor& visitor, const Opr& opr, col_pt& col) {
+	if constexpr (std::is_invocable_v<const material_visitor&, const Opr&, Col&>) {
+		if (auto* typed_col = std::get_if<Col>(&col)) {
+			visitor(opr, *typed_col);
+			return true;
+		}
+	}
+	return false;
+}
+
+template <typename Opr, size_t... I>
+bool TryMaterialize(const material_visitor& visitor, const Opr& opr, col_pt& col, std::index_sequence<I...>) {
+	// The fold is a compile-time filter, not a runtime scan of physical_operator.
+	// Ordinary operators emit one column check; unffor emits unsigned and signed
+	// checks using exactly the same overload resolution as the original visitor.
+	return (TryMaterialize<std::variant_alternative_t<I, col_pt>>(visitor, opr, col) || ...);
+}
+
+void MaterializeOperator(const physical_operator& opr, col_pt& col, n_t vec_idx) {
+	// get_if alone would treat a valueless column as a mismatch. Preserve the
+	// bad_variant_access that the original two-variant visit would throw instead.
+	if (col.valueless_by_exception()) {
+		throw std::bad_variant_access();
+	}
+	if (const auto* expr = std::get_if<sp<PhysicalExpr>>(&opr)) {
+		const auto& nested = std::visit(
+		    [&](const auto& typed_col) -> const physical_operator& {
+			    if constexpr (requires { material_visitor::NestedOperator(*expr, typed_col); }) {
+				    return material_visitor::NestedOperator(*expr, typed_col);
+			    } else {
+				    ThrowMaterializationMismatch(opr, col);
+			    }
+		    },
+		    col);
+		MaterializeOperator(nested, col, vec_idx);
+		return;
+	}
+	const bool matched = std::visit(
+	    [&](const auto& typed_opr) {
+		    return TryMaterialize(
+		        material_visitor {vec_idx}, typed_opr, col, std::make_index_sequence<std::variant_size_v<col_pt>> {});
+	    },
+	    opr);
+	if (!matched) {
+		ThrowMaterializationMismatch(opr, col);
+	}
+}
+
+} // namespace
 
 void Materializer::Materialize(const vector<sp<PhysicalExpr>>& expressions, n_t vec_idx) const {
 	FLS_ASSERT_E(expressions.size(), rowgroup.internal_rowgroup.size());
@@ -201,7 +260,7 @@ void Materializer::Materialize(const vector<sp<PhysicalExpr>>& expressions, n_t 
 		FLS_ASSERT_NOT_EMPTY_VEC(expr->operators);
 
 		expr->PointTo(vec_idx);
-		visit(material_visitor {vec_idx}, expr->operators[expr->operators.size() - 1], col);
+		MaterializeOperator(expr->operators[expr->operators.size() - 1], col, vec_idx);
 	}
 
 	// rowgroup.n_tup = rowgroup.n_tup + CFG::VEC_SZ;

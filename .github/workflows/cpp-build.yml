@@ -1,0 +1,108 @@
+# ────────────────────────────────────────────────────────
+# |                      FastLanes                       |
+# ────────────────────────────────────────────────────────
+# .github/workflows/cpp-build.yml
+# ────────────────────────────────────────────────────────
+name: Reusable C++ build
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        type: string
+        required: true
+      build-type:
+        type: string
+        required: true
+      tests:
+        type: boolean
+        default: false
+      install-artifact:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ${{ inputs.platform }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CMAKE_GENERATOR: Ninja
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Detect CPU count
+        run: make detect-cpu | tee -a "$GITHUB_ENV"
+      - name: Generate synthetic dataset
+        if: inputs.tests
+        uses: ./.github/actions/generate-dataset
+      - name: Install LLVM
+        uses: ./.github/actions/install-llvm
+      - name: Set up Python on Windows
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set up compiler cache
+        uses: ./.github/actions/setup-ccache
+        with:
+          key: ${{ inputs.platform }}-${{ inputs.build-type }}
+      - name: Build and validate static library
+        uses: ./.github/actions/build-cpp
+        with:
+          build-type: ${{ inputs.build-type }}
+          shared: 'OFF'
+          tests: ${{ inputs.tests && 'ON' || 'OFF' }}
+          standalone-tests: ${{ runner.os != 'Windows' && 'ON' || 'OFF' }}
+          examples: ${{ inputs.build-type == 'Release' && 'ON' || 'OFF' }}
+          install: ${{ inputs.build-type == 'Release' && 'ON' || 'OFF' }}
+      # Reconfigure the SAME Ninja tree; never copy objects between configurations.
+      # Retain the existing Ubuntu 24.04 ARM Debug/shared exclusion.
+      - name: Build and validate shared library (reuse objects)
+        if: inputs.platform != 'ubuntu-24.04-arm' || inputs.build-type != 'Debug'
+        uses: ./.github/actions/build-cpp
+        with:
+          build-type: ${{ inputs.build-type }}
+          shared: 'ON'
+          tests: ${{ inputs.tests && 'ON' || 'OFF' }}
+          standalone-tests: ${{ runner.os != 'Windows' && 'ON' || 'OFF' }}
+          examples: ${{ inputs.build-type == 'Release' && 'ON' || 'OFF' }}
+          install: ${{ inputs.build-type == 'Release' && 'ON' || 'OFF' }}
+      - name: Compiler cache statistics
+        if: always()
+        run: |
+          if command -v ccache >/dev/null; then
+            {
+              echo '### Compiler cache'
+              echo '```text'
+              ccache --show-stats --verbose
+              echo '```'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload build timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ninja-log-${{ inputs.platform }}-${{ inputs.build-type }}
+          path: build/.ninja_log
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload C++ install trees
+        if: inputs.install-artifact && inputs.build-type == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastlanes-cpp-install-${{ inputs.platform }}
+          path: |
+            build/install-OFF
+            build/install-ON
+          retention-days: 7

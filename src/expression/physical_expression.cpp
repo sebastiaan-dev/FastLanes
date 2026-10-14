@@ -31,9 +31,33 @@
 #include "fls/std/variant.hpp"
 #include "fls/std/vector.hpp"
 #include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <typeinfo>
 #include <utility>
+#include <variant>
 
 namespace fastlanes {
+
+namespace {
+
+[[noreturn]] void ThrowUnexpectedOperatorType(const std::type_info& type, const char* file, int line) {
+	const auto msg =
+	    "[FLS] UNREACHABLE with unexpected type: " + demangle(type.name()) + " at " + file + ":" + std::to_string(line);
+	FLS_ABORT(msg.c_str())
+	throw std::runtime_error(msg);
+}
+
+} // namespace
+
+[[noreturn]] void ThrowUnexpectedPhysicalOperator(const physical_operator& opr, const char* file, int line) {
+	// Visit only to retrieve RTTI. Formatting and throwing are instantiated once,
+	// not separately for every alternative of every visitor.
+	const auto& type =
+	    std::visit([](const auto& arg) -> const std::type_info& { return typeid(std::decay_t<decltype(arg)>); }, opr);
+	ThrowUnexpectedOperatorType(type, file, line);
+}
 
 struct point_to_visitor {
 	explicit point_to_visitor(const n_t vec_n)
@@ -236,7 +260,7 @@ struct point_to_visitor {
 	void operator()(const sp<enc_data_parallel_patch_opr<PT>>& opr) {
 	}
 	void operator()(const auto& arg) {
-		FLS_UNREACHABLE_WITH_TYPE(arg)
+		ThrowUnexpectedOperatorType(typeid(std::decay_t<decltype(arg)>), __FILE__, __LINE__);
 	}
 
 	const n_t vec_idx;
@@ -382,7 +406,7 @@ struct flush_segments_visitor {
 	void operator()(const sp<enc_data_parallel_patch_opr<PT>>& opr) {
 	}
 	void operator()(const auto& arg) {
-		FLS_UNREACHABLE_WITH_TYPE(arg)
+		ThrowUnexpectedOperatorType(typeid(std::decay_t<decltype(arg)>), __FILE__, __LINE__);
 	}
 
 	template <typename PT, bool USE_PATCHING>
@@ -539,7 +563,7 @@ struct extract_segments_visitor {
 	}
 	//
 	void operator()(const auto& arg) {
-		FLS_UNREACHABLE_WITH_TYPE(arg)
+		ThrowUnexpectedOperatorType(typeid(std::decay_t<decltype(arg)>), __FILE__, __LINE__);
 	}
 
 public:
@@ -680,7 +704,7 @@ struct finalize_operators_visitor {
 	}
 	//
 	void operator()(const auto& arg) {
-		FLS_UNREACHABLE_WITH_TYPE(arg)
+		ThrowUnexpectedOperatorType(typeid(std::decay_t<decltype(arg)>), __FILE__, __LINE__);
 	}
 };
 

@@ -13,14 +13,19 @@ run-name: >-
 # ────────────────────────────────────────────────────────
 on:
   push:
+    branches: [ main, dev, integration/duckdb ]
+    tags: [ '**' ]
   pull_request:
-    branches: [ main, dev ]
   workflow_dispatch:
     inputs:
       publish:
         type: boolean
         description: "Upload the wheel to TestPyPI?"
         default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 # ────────────────────────────────────────────────────────
 # Default permissions for all jobs

@@ -9,10 +9,12 @@ run-name: >-
   — ${{ github.event.pull_request.title || github.event.head_commit.message }}
 
 # ─────────────────────────────────────────────────────────────
-# Trigger on every push & PR, on all branches
+# Trigger on integration branch pushes & PRs targeting any branch
 # ─────────────────────────────────────────────────────────────
 on:
-  push:     # no branches filter ⇒ every branch
+  push:
+    branches: [ main, dev, integration/duckdb ]
+    tags: [ '**' ]
   pull_request:  # no branches filter ⇒ every target branch
 concurrency:
   group: flatbuffers-${{ github.ref }}
@@ -81,4 +83,4 @@ jobs:
             -DFLS_ENABLE_VERBOSE_OUTPUT=ON
 
       - name: Build FastLanes
-        run: cmake --build build --parallel $(nproc)
+        run: cmake --build build --parallel "$(nproc)"

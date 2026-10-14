@@ -7,7 +7,6 @@
 #include "fls/cfg/cfg.hpp"
 #include "fls/common/alias.hpp"
 #include "fls/common/assert.hpp"
-#include "fls/common/common.hpp"
 #include "fls/expression/analyze_operator.hpp"
 #include "fls/expression/data_type.hpp"
 #include "fls/expression/decoding_operator.hpp"
@@ -19,7 +18,6 @@
 #include "fls/reader/column_view.hpp"
 #include "fls/reader/segment.hpp"
 #include "fls/std/type_traits.hpp"
-#include "fls/std/variant.hpp"
 #include "fls/std/vector.hpp"
 #include "fls/table/rowgroup.hpp"
 #include <cstdint>
@@ -36,16 +34,14 @@ enc_slpatch_opr<PT>::enc_slpatch_opr(const PhysicalExpr& expr,
                                      ColumnDescriptorT&  column_descriptor,
                                      InterpreterState&   state) {
 
-	visit(overloaded {
-	          [&](const sp<enc_analyze_opr<PT, true>>& opr) {
-		          n_exceptions_p    = &opr->n_exceptions;
-		          exceptions        = opr->exceptions;
-		          exception_pos_arr = opr->exception_pos_arr;
-	          },
-	          [&](std::monostate&) { FLS_UNREACHABLE(); },
-	          [&](auto& arg) { FLS_UNREACHABLE_WITH_TYPE(arg); },
-	      },
-	      expr.operators.back());
+	const auto& input = expr.operators.back();
+	if (const auto* analyze = std::get_if<sp<enc_analyze_opr<PT, true>>>(&input)) {
+		n_exceptions_p    = &(*analyze)->n_exceptions;
+		exceptions        = (*analyze)->exceptions;
+		exception_pos_arr = (*analyze)->exception_pos_arr;
+	} else {
+		ThrowUnexpectedPhysicalOperator(input, __FILE__, __LINE__);
+	}
 
 	n_exceptions_segment        = make_unique<Segment>();
 	exceptions_position_segment = make_unique<Segment>();
@@ -89,30 +85,6 @@ template struct enc_slpatch_opr<i08_pt>;
  * dec slpatch opr
 \*--------------------------------------------------------------------------------------------------------------------*/
 template <typename PT>
-struct SLPatchExprVisitor {
-	explicit SLPatchExprVisitor(dec_slpatch_opr<PT>& this_opr)
-	    : this_opr(this_opr) {
-	}
-
-	void operator()(const sp<dec_unffor_opr<PT>>& opr) {
-		this_opr.data = opr->unffored_data;
-	}
-	template <typename T = PT>
-	requires(!std::is_same_v<T, make_unsigned_t<T>>) void
-	operator()(const sp<dec_unffor_opr<make_unsigned_t<PT>>>& opr) {
-		this_opr.data = reinterpret_cast<PT*>(opr->unffored_data);
-	}
-	void operator()(std::monostate& arg) {
-		FLS_UNREACHABLE_WITH_TYPE(arg);
-	}
-	void operator()(const auto& arg) {
-		FLS_UNREACHABLE_WITH_TYPE(arg);
-	}
-
-	dec_slpatch_opr<PT>& this_opr;
-};
-
-template <typename PT>
 dec_slpatch_opr<PT>::dec_slpatch_opr(PhysicalExpr&     physical_expr,
                                      const ColumnView& column_view,
                                      InterpreterState& state)
@@ -128,7 +100,14 @@ dec_slpatch_opr<PT>::dec_slpatch_opr(PhysicalExpr&     physical_expr,
               static_cast<uint32_t>(state.cur_operand - 0))))) {
 	state.cur_operand -= 3;
 
-	visit(SLPatchExprVisitor {*this}, physical_expr.operators.back());
+	// physical_operator contains only unsigned unffor alternatives. Signed
+	// patching uses the same buffer, interpreted as the corresponding signed type.
+	const auto& input = physical_expr.operators.back();
+	if (const auto* unffor = std::get_if<sp<dec_unffor_opr<make_unsigned_t<PT>>>>(&input)) {
+		data = reinterpret_cast<PT*>((*unffor)->unffored_data);
+	} else {
+		ThrowUnexpectedPhysicalOperator(input, __FILE__, __LINE__);
+	}
 }
 
 template <typename PT>

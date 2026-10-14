@@ -372,6 +372,11 @@ using physical_operator = variant<std::monostate,
                                   //
                                   >;
 
+// Shared cold path for narrow dispatch: retain the unexpected alternative's
+// type and the caller's location without instantiating diagnostics per PT.
+// Like std::visit, throws std::bad_variant_access for a valueless variant.
+[[noreturn]] void ThrowUnexpectedPhysicalOperator(const physical_operator& opr, const char* file, int line);
+
 using physical_operators = vector<physical_operator>;
 using physical_operands  = vector<fls_vec>;
 

@@ -1,0 +1,59 @@
+# ────────────────────────────────────────────────────────
+# |                      FastLanes                       |
+# ────────────────────────────────────────────────────────
+# .github/actions/setup-ccache/action.yml
+# ────────────────────────────────────────────────────────
+name: Set up compiler cache
+description: Restore compiler results, not machine-specific CMake build trees
+inputs:
+  key:
+    description: Runner image and build configuration (static/shared share a cache)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install ccache
+      shell: bash
+      run: |
+        if ! command -v ccache >/dev/null; then
+          case "$RUNNER_OS" in
+            Linux) sudo apt-get install -y ccache ;;
+            macOS) brew install ccache ;;
+            Windows) choco install ccache -y --no-progress ;;
+            *) echo "Unsupported runner: $RUNNER_OS" >&2; exit 1 ;;
+          esac
+        fi
+        ccache --version
+        echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
+
+    - name: Identify compiler
+      id: compiler
+      shell: bash
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import os
+        import subprocess
+
+        version = subprocess.check_output(["clang++", "--version"])
+        digest = hashlib.sha256(version).hexdigest()[:16]
+        with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+            output.write(f"id={digest}\n")
+        PY
+
+    - name: Cache compiler results
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/ccache
+        key: ccache-v1-${{ inputs.key }}-${{ runner.arch }}-${{ steps.compiler.outputs.id }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          ccache-v1-${{ inputs.key }}-${{ runner.arch }}-${{ steps.compiler.outputs.id }}-
+
+    - name: Configure ccache
+      shell: bash
+      run: |
+        # Bound each platform/configuration cache entry's size across both CI tiers.
+        # Do not use sloppiness settings or ignore native-architecture flags.
+        echo "CCACHE_MAXSIZE=512M" >> "$GITHUB_ENV"
+        ccache --zero-stats
