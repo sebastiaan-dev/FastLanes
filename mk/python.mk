@@ -34,25 +34,12 @@ endif
 
 PIP := $(PYTHON) -m pip   # always use the project-local python above
 
-# --- pick the interpreter that *creates* the venv -----------
+# Honor the interpreter on PATH (including actions/setup-python), rather than
+# bypassing it with an unrelated Homebrew Python installation.
 ifeq ($(OS),Windows_NT)
-  CREATE_PY := py -3
+  CREATE_PY ?= py -3
 else
-  UNAME_S := $(shell uname -s)
-  ifeq ($(UNAME_S),Darwin)
-    BREW_PYTHON ?= /opt/homebrew/bin/python3
-    ALT_BREW_PY ?= /usr/local/bin/python3
-    ifneq ($(shell test -x $(BREW_PYTHON) && echo yes),yes)
-      ifeq ($(shell test -x $(ALT_BREW_PY) && echo yes),yes)
-        BREW_PYTHON := $(ALT_BREW_PY)
-      else
-        BREW_PYTHON := python3
-      endif
-    endif
-    CREATE_PY := $(BREW_PYTHON)
-  else
-    CREATE_PY := python3
-  endif
+  CREATE_PY ?= python3
 endif
 
 # ─────────────────────────────────────────────────────────────

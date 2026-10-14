@@ -29,6 +29,7 @@
 #include <filesystem>
 #include <memory>    // for std::make_unique, unique_ptr
 #include <stdexcept> // for std::runtime_error
+#include <utility>   // for std::move
 
 namespace fastlanes {
 

@@ -245,8 +245,17 @@ public:
 
 private:
 	IoTracer() {
+#if defined(_MSC_VER)
+		char*  e      = nullptr;
+		size_t length = 0;
+		if (_dupenv_s(&e, &length, "FLS_IO_TRACE") == 0) {
+			enabled_ = (e && *e == '1');
+		}
+		std::free(e);
+#else
 		const char* e = std::getenv("FLS_IO_TRACE");
 		enabled_      = (e && *e == '1');
+#endif
 	}
 	static uint64_t tid64() {
 		auto id = std::this_thread::get_id();
