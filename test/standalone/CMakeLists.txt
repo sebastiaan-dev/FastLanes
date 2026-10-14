@@ -26,3 +26,8 @@ add_test(NAME fastlanes_materializer_dispatch_invalid
         -DTEST_EXECUTABLE=$<TARGET_FILE:fastlanes_materializer_dispatch_test>
         -P ${CMAKE_CURRENT_SOURCE_DIR}/materializer_dispatch_invalid.cmake)
 set_tests_properties(fastlanes_materializer_dispatch_test fastlanes_materializer_dispatch_invalid PROPERTIES TIMEOUT 120)
+
+add_executable(fastlanes_fsst12_portability_test fsst12_portability_test.cpp)
+target_link_libraries(fastlanes_fsst12_portability_test PRIVATE FastLanes)
+add_test(NAME fastlanes_fsst12_portability_test COMMAND fastlanes_fsst12_portability_test)
+set_tests_properties(fastlanes_fsst12_portability_test PROPERTIES TIMEOUT 60)
