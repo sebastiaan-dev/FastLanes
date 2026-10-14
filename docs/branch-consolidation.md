@@ -16,7 +16,10 @@ The consolidation target is `fix/duckdb-1.5.6`. The fork's `origin`, the CWIDA
 | `main` | `6c2e8df` | Leave the existing default branch and its worktree untouched. It has a separate history from dev; do not force an unrelated-history merge. |
 
 The missing writer-options change is cherry-picked with its original commit
-recorded. After the useful work is ported, history-only merges account for
+recorded. Row-group preparation also skips automatic type narrowing when an
+explicit encoding/schema pool is forced; otherwise an INT64 codec can receive an
+INT16 column. The small-integer regression failed before this follow-up fix.
+After the useful work is ported, history-only merges account for
 `update` and `task/ifstream-to-pread` as reviewed/superseded; their older APIs are
 not allowed to overwrite the tested integration.
 

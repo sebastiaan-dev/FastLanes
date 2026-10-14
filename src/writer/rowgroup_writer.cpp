@@ -86,7 +86,11 @@ void RowGroupWriter::Finalize() {
 
 	rg.n_tup = n_tuples_per_column[0];
 	rg.Init();
-	rg.Cast();
+	// Forced encodings are selected for the declared physical types. Narrowing
+	// first can leave an INT64 encoding paired with an INT16 column, for example.
+	if (!file_writer.IsForcedSchema() && !file_writer.IsForcedSchemaPool()) {
+		rg.Cast();
+	}
 	rg.Finalize();
 	rg.GetStatistics();
 	descriptor             = make_rowgroup_descriptor(rg);

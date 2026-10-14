@@ -150,7 +150,9 @@ void TestWriterOptions(const fs::path& root, bool forced_pool, bool inline_foote
 	WriteText(dir / "schema.json", R"({"columns":[{"name":"value","type":"BIGINT"}]})");
 	std::string csv;
 	for (int64_t i = 0; i < 1031; ++i) {
-		csv += std::to_string(1000000000000LL + i) + "\n";
+		// Small values normally narrow to INT16. A forced INT64 encoding must
+		// retain the declared physical type rather than narrowing it first.
+		csv += std::to_string(i) + "\n";
 	}
 	WriteText(dir / "values.csv", csv);
 	Config config;
