@@ -10,6 +10,7 @@
 #include "fls/file/file_header.hpp"
 #include "fls/io/file.hpp"
 #include "fls/reader/table_reader.hpp"
+#include "fls/table/rowgroup.hpp"
 #include "fls/table/table.hpp"
 #include "fls/writer/file_writer.hpp"
 #include <atomic>
@@ -22,6 +23,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -198,7 +200,22 @@ void TestNativeFloatMaterialization(const fs::path& root, fastlanes::OperatorTok
 	    table->get_descriptor().m_rowgroup_descriptors()->Get(0)->m_column_descriptors()->Get(0)->encoding_rpn();
 	Check(rpn->operand_tokens() == nullptr, "Expected an operand-free codec");
 	const auto decoded = table->materialize();
-	Check((writer.get_table() == *decoded).is_equal, "Native floating-point table round trip mismatch");
+	if (!(writer.get_table() == *decoded).is_equal) {
+		const auto& expected =
+		    std::get<up<TypedCol<double>>>(writer.get_table().GetRowgroup(0).internal_rowgroup[0])->data;
+		const auto& actual = std::get<up<TypedCol<double>>>(decoded->GetRowgroup(0).internal_rowgroup[0])->data;
+		std::cerr << "Floating-point vector sizes: expected " << expected.size() << ", decoded " << actual.size()
+		          << '\n';
+		for (size_t i = 0; i < expected.size() && i < actual.size(); ++i) {
+			if (expected[i] != actual[i]) {
+				std::cerr << "First mismatch at row " << i << ": expected " << std::hexfloat << expected[i]
+				          << ", decoded " << actual[i] << std::defaultfloat << '\n';
+				break;
+			}
+		}
+		throw std::runtime_error(token == OperatorToken::EXP_ALP_DBL ? "Native ALP table round trip mismatch"
+		                                                             : "Native ALP-RD table round trip mismatch");
+	}
 }
 
 void TestNativeStructMaterialization(const fs::path& root) {
