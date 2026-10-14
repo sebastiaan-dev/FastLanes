@@ -236,10 +236,10 @@ template u08_pt* Segment::GetFixedSizeArray<u08_pt>(n_t length);
 /*--------------------------------------------------------------------------------------------------------------------*\
  * make_segment_view
 \*--------------------------------------------------------------------------------------------------------------------*/
-SegmentView make_segment_view(span<std::byte> column_span,
+SegmentView make_segment_view(span<std::byte>          column_span,
                               const SegmentDescriptor& segment_descriptor,
-                              uint64_t                  column_offset,
-                              std::shared_ptr<void>     owner) {
+                              uint64_t                 column_offset,
+                              std::shared_ptr<void>    owner) {
 	const auto local_entry_offset = segment_descriptor.entrypoint_offset() - column_offset;
 	const auto local_data_offset  = segment_descriptor.data_offset() - column_offset;
 

@@ -1,3 +1,8 @@
+// ────────────────────────────────────────────────────────
+// |                      FastLanes                       |
+// ────────────────────────────────────────────────────────
+// test/standalone/integration_test.cpp
+// ────────────────────────────────────────────────────────
 // Standalone regression tests for the branch-consolidation patches.
 // No external data or test framework is required; checks also run under NDEBUG.
 #include "fls/connection.hpp"
@@ -33,15 +38,14 @@ void CheckThrows(F&& operation) {
 	bool threw = false;
 	try {
 		operation();
-	} catch (const std::exception&) {
-		threw = true;
-	}
+	} catch (const std::exception&) { threw = true; }
 	Check(threw, "Expected an I/O exception");
 }
 
 struct TempDirectory {
-	fs::path path = fs::temp_directory_path() /
-	                ("fastlanes-integration-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+	fs::path path =
+	    fs::temp_directory_path() /
+	    ("fastlanes-integration-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 	TempDirectory() {
 		Check(fs::create_directory(path), "Cannot create test directory");
 	}
@@ -59,7 +63,7 @@ void WriteText(const fs::path& path, const std::string& text) {
 }
 
 void TestNewOutput(const fs::path& root) {
-	const auto path = root / "new.bin";
+	const auto        path = root / "new.bin";
 	const std::string text = "new output";
 	{
 		File output(path); // Must not try to open a nonexistent output for reading.
@@ -92,8 +96,8 @@ void TestConcurrentFirstRead(const fs::path& root) {
 	}
 	const auto path = root / "concurrent.bin";
 	WriteText(path, text);
-	File input(path);
-	std::atomic<bool> start {false};
+	File                           input(path);
+	std::atomic<bool>              start {false};
 	std::vector<std::future<void>> workers;
 	for (size_t worker = 0; worker < 8; ++worker) {
 		workers.push_back(std::async(std::launch::async, [&, worker] {
@@ -102,7 +106,7 @@ void TestConcurrentFirstRead(const fs::path& root) {
 			}
 			for (size_t iteration = 0; iteration < 100; ++iteration) {
 				const auto offset = (worker * 127 + iteration * 31) % (text.size() - 64);
-				const Buf buffer(64);
+				const Buf  buffer(64);
 				input.ReadRange(buffer, offset, 64);
 				Check(input.Size() == text.size(), "Concurrent Size mismatch");
 				Check(std::string(reinterpret_cast<const char*>(buffer.data()), 64) == text.substr(offset, 64),
@@ -118,7 +122,7 @@ void TestConcurrentFirstRead(const fs::path& root) {
 
 void TestReadErrors(const fs::path& root) {
 	const auto path = root / "missing.bin";
-	File input(path);
+	File       input(path);
 	CheckThrows([&] { (void)input.Size(); });
 	// Failed call_once initialization must be retryable when the file appears.
 	WriteText(path, "abcdef");
@@ -171,14 +175,15 @@ void TestWriterOptions(const fs::path& root, bool forced_pool, bool inline_foote
 	FileHeader::Load(header, output);
 	Check(header.settings.inline_footer == config.inline_footer, "Connection footer option was lost");
 	Check(fs::exists(dir / FOOTER_NAME) == !inline_footer, "Unexpected external footer");
-	auto reader = connection.read_fls(output);
+	auto        reader = connection.read_fls(output);
 	const auto* groups = reader->get_descriptor().m_rowgroup_descriptors();
 	Check(groups->size() == 1, "Expected one row group");
 	Check(groups->Get(0)->m_n_tuples() == 1031, "Partial-vector row count was lost");
 	const auto* operators = groups->Get(0)->m_column_descriptors()->Get(0)->encoding_rpn()->operator_tokens();
 	Check(operators->size() == 1 && operators->Get(0) == tokens[0], "Forced writer encoding was lost");
 
-	auto writer = FileWriter::Builder().WithPath(dir / "unused.fls").WithConnection(connection).WithSampleSize(3).Build();
+	auto writer =
+	    FileWriter::Builder().WithPath(dir / "unused.fls").WithConnection(connection).WithSampleSize(3).Build();
 	Check(writer->GetSampleSize() == 3, "Writer sample size was lost");
 }
 } // namespace

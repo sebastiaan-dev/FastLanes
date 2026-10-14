@@ -61,18 +61,20 @@ public:
 	explicit dec_fsst_opr(PhysicalExpr& physical_expr, const ColumnView& column_view, InterpreterState& state);
 
 public:
-	void PointTo(n_t vec_n);
-	void Decode(vector<uint8_t>& out_byte_arr, vector<ofs_t>& out_length_arr);
+	void                                     PointTo(n_t vec_n);
+	void                                     Decode(vector<uint8_t>& out_byte_arr, vector<ofs_t>& out_length_arr);
 	[[nodiscard]] OwnedSpan<const std::byte> GetEncodedBytes() const;
-	[[nodiscard]] std::shared_ptr<void>      GetEncodedOwner() const { return bytes_owner; }
+	[[nodiscard]] std::shared_ptr<void>      GetEncodedOwner() const {
+		     return bytes_owner;
+	}
 
 public:
-	SegmentView     fsst_header_segment_view;
-	SegmentView     fsst_bytes_segment_view;
-	fsst_decoder_t  fsst_decoder;
-	vector<uint8_t> tmp_string;
-	ofs_t*          offset_arr;
-	ofs_t           untrasposed_offset[CFG::VEC_SZ];
+	SegmentView           fsst_header_segment_view;
+	SegmentView           fsst_bytes_segment_view;
+	fsst_decoder_t        fsst_decoder;
+	vector<uint8_t>       tmp_string;
+	ofs_t*                offset_arr;
+	ofs_t                 untrasposed_offset[CFG::VEC_SZ];
 	std::shared_ptr<void> header_owner;
 	std::shared_ptr<void> bytes_owner;
 };

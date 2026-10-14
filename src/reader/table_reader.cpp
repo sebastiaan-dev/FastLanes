@@ -5,8 +5,8 @@
 // ────────────────────────────────────────────────────────
 #include "fls/reader/table_reader.hpp"
 #include "fls/common/alias.hpp"
-#include "fls/csv/csv.hpp"
 #include "fls/cor/lyt/buf_pool.hpp"
+#include "fls/csv/csv.hpp"
 #include "fls/encoder/materializer.hpp"
 #include "fls/file/file_footer.hpp"
 #include "fls/file/file_header.hpp"

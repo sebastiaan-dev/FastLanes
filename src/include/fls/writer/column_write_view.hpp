@@ -1,3 +1,8 @@
+// ────────────────────────────────────────────────────────
+// |                      FastLanes                       |
+// ────────────────────────────────────────────────────────
+// src/include/fls/writer/column_write_view.hpp
+// ────────────────────────────────────────────────────────
 #ifndef FLS_WRITER_COLUMNVIEW_HPP
 #define FLS_WRITER_COLUMNVIEW_HPP
 

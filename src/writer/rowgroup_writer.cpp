@@ -1,3 +1,8 @@
+// ────────────────────────────────────────────────────────
+// |                      FastLanes                       |
+// ────────────────────────────────────────────────────────
+// src/writer/rowgroup_writer.cpp
+// ────────────────────────────────────────────────────────
 #include "fls/writer/rowgroup_writer.hpp"
 #include "fls/encoder/encoder.hpp"
 #include "fls/wizard/wizard.hpp"

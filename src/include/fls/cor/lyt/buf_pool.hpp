@@ -8,10 +8,9 @@
 
 #include "fls/cor/lyt/buf.hpp"
 #include "fls/std/vector.hpp"
-
-#include <mutex>
-#include <memory>
 #include <functional>
+#include <memory>
+#include <mutex>
 
 namespace fastlanes {
 
@@ -33,8 +32,8 @@ public:
 private:
 	void Recycle(Buf* buffer);
 
-	std::mutex                         mutex_;
-	std::vector<std::unique_ptr<Buf>>  free_list_;
+	std::mutex                        mutex_;
+	std::vector<std::unique_ptr<Buf>> free_list_;
 };
 
 inline std::shared_ptr<Buf> BufPool::Acquire(const n_t min_capacity) {
@@ -59,9 +58,9 @@ inline std::shared_ptr<Buf> BufPool::Acquire(const n_t min_capacity) {
 
 	buffer->Reset();
 
-	auto self     = shared_from_this();
-	auto raw_buf  = buffer.release();
-	auto deleter  = [weak_pool = std::weak_ptr<BufPool>(self)](Buf* ptr) {
+	auto self    = shared_from_this();
+	auto raw_buf = buffer.release();
+	auto deleter = [weak_pool = std::weak_ptr<BufPool>(self)](Buf* ptr) {
 		if (!ptr) {
 			return;
 		}

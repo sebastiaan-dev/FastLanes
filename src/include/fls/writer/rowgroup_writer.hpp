@@ -1,3 +1,8 @@
+// ────────────────────────────────────────────────────────
+// |                      FastLanes                       |
+// ────────────────────────────────────────────────────────
+// src/include/fls/writer/rowgroup_writer.hpp
+// ────────────────────────────────────────────────────────
 #ifndef FLS_WRITER_ROWGROUP_HPP
 #define FLS_WRITER_ROWGROUP_HPP
 

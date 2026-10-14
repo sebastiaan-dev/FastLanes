@@ -15,7 +15,7 @@
 namespace fastlanes {
 
 RowgroupView::RowgroupView(const std::vector<std::optional<ColumnBufferReference>>& cols_by_id,
-                           const RowgroupDescriptor&                               footer) {
+                           const RowgroupDescriptor&                                footer) {
 	columns.resize(cols_by_id.size());
 
 	for (idx_t id = 0; id < static_cast<idx_t>(cols_by_id.size()); ++id) {

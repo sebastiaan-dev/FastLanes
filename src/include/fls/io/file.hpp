@@ -151,8 +151,8 @@ private:
 	void ReadInternal(uint8_t* dst, n_t size, off_t offset = 0) const;
 
 private:
-	path                    m_path;
-	up<std::ofstream>       m_of_stream;
+	path              m_path;
+	up<std::ofstream> m_of_stream;
 	// Defer read-only I/O so a File can also create a new output file. call_once
 	// publishes the descriptor and size safely to concurrent positional readers.
 	mutable std::once_flag m_read_once;
