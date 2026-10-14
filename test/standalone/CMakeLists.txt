@@ -31,3 +31,14 @@ add_executable(fastlanes_fsst12_portability_test fsst12_portability_test.cpp)
 target_link_libraries(fastlanes_fsst12_portability_test PRIVATE FastLanes)
 add_test(NAME fastlanes_fsst12_portability_test COMMAND fastlanes_fsst12_portability_test)
 set_tests_properties(fastlanes_fsst12_portability_test PROPERTIES TIMEOUT 60)
+
+# Windows does not search the library build directory when launching these tests.
+if (WIN32 AND FLS_BUILD_SHARED_LIBS)
+    foreach(test_target IN ITEMS fastlanes_integration_test fastlanes_variant_dispatch_test
+            fastlanes_materializer_dispatch_test fastlanes_fsst12_portability_test)
+        add_custom_command(TARGET ${test_target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_RUNTIME_DLLS:${test_target}> $<TARGET_FILE_DIR:${test_target}>
+                COMMAND_EXPAND_LISTS)
+    endforeach()
+endif()
