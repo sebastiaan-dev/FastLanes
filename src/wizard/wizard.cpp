@@ -3,27 +3,24 @@
 // ────────────────────────────────────────────────────────
 // src/wizard/wizard.cpp
 // ────────────────────────────────────────────────────────
-#include "fls/wizard/wizard.hpp"
 #include "fls/cfg/cfg.hpp"
 #include "fls/common/alias.hpp" // for n_t, up, idx_t, make_unique
 #include "fls/common/assert.hpp"
 #include "fls/common/common.hpp" // for FLS_UNREACHABLE
 #include "fls/common/string.hpp"
-#include "fls/connection.hpp"           // for Connector
-#include "fls/expression/data_type.hpp" // for DataType, get_physical_type
 #include "fls/expression/expression_executor.hpp"
 #include "fls/expression/interpreter.hpp"
+#include "fls/expression/physical_expression.hpp"
 #include "fls/expression/rpn.hpp" // for Operator, Operand, NewRPN
-#include "fls/footer/column_descriptor.hpp"
 #include "fls/footer/column_descriptor_generated.h"
 #include "fls/footer/operator_token_generated.h"
 #include "fls/footer/rowgroup_descriptor.hpp" // for ColumnMetadata, RowgroupDescriptor
-#include "fls/footer/table_descriptor.hpp"
 #include "fls/std/unordered_map.hpp"
 #include "fls/std/variant.hpp"    // for visit
 #include "fls/std/vector.hpp"     // for vector
 #include "fls/table/rowgroup.hpp" // for Rowgroup, TypedCol (ptr ...
 #include "fls/wizard/sampling_layout.hpp"
+#include "fls/wizard/wizard_helpers.hpp"
 #include <algorithm> // std::min_element
 #include <cstdint>   // int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t
 #include <cstring>

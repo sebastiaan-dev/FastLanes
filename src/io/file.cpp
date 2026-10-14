@@ -25,7 +25,6 @@
 #include <io.h>
 #include <limits>
 #else
-#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -129,7 +128,7 @@ void File::ReadInternal(uint8_t* dst, const n_t size, const n_t offset) const {
 		const auto count   = static_cast<unsigned int>(std::min<n_t>(size - done, std::numeric_limits<int>::max()));
 		const int  n_bytes = ::_read(m_fd, dst + done, count);
 #else
-		const ssize_t n_bytes = ::pread(m_fd, dst + done, size - done, static_cast<off_t>(offset + done));
+		const auto n_bytes = ::pread(m_fd, dst + done, size - done, static_cast<int64_t>(offset + done));
 #endif
 		if (n_bytes < 0 && errno == EINTR) {
 			continue;
