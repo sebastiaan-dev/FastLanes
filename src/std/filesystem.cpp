@@ -43,7 +43,7 @@ std::ifstream FileSystem::open_r(const path& file) {
 int FileSystem::open_r_binary(const path& file) {
 	const int fd = ::open(file.c_str(), O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
-		FLS_ABORT("Could not open file in read-only mode")
+		throw_last_error(file);
 	}
 	return fd;
 }
@@ -88,8 +88,8 @@ void FileSystem::check_if_file_exists(const fs::path& file_path) {
 off_t FileSystem::read_file_size(const int fd) {
 	struct stat st {};
 	if (::fstat(fd, &st) != 0) {
-		FileSystem::close(fd);
-		FLS_ABORT("Could not stat file in read-only mode")
+		// The caller owns fd, including on failure.
+		throw std::system_error(errno, std::generic_category(), "fstat");
 	}
 	return st.st_size;
 }

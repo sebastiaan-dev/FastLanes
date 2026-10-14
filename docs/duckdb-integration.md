@@ -17,6 +17,9 @@ Two additional build fixes:
 
 The extension pins the same source revision and carries these two changes in
 `patches/fastlanes-build.patch`, so it can also build without this local checkout.
+Subsequent [branch consolidation](branch-consolidation.md) restores writer
+option forwarding and safe deferred positional I/O. Those changes are mirrored
+in the extension's `patches/fastlanes-branch-consolidation.patch`.
 
 For paired development, both repositories have a Worktrunk-managed
 `fix/duckdb-1.5.6` worktree under `~/repos`:

@@ -9,11 +9,20 @@
 #include "fls/common/common.hpp"
 #include "fls/std/filesystem.hpp"
 #include "fls/std/string.hpp"
+#include <algorithm>
+#include <atomic>
 #include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
 #include <future>
 #include <mutex>
 #include <queue>
+#include <sys/types.h>
 #include <thread>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace fastlanes {
@@ -112,17 +121,20 @@ public:
 	explicit File(const path& path);
 	~File();
 
+	File(const File&)            = delete;
+	File& operator=(const File&) = delete;
+
 public:
 	// write to file_path
 	void Write(const Buf& buf);
 	// write to file_path
-	void Read(Buf& buf);
+	void Read(const Buf& buf);
 	// write to file_path
 	void Append(const Buf& buf);
 	// Append
 	void Append(const char* pointer, n_t size);
 	//
-	void ReadRange(Buf& buf, n_t offset, n_t size);
+	void ReadRange(const Buf& buf, n_t offset, n_t size);
 	// get file size
 	[[nodiscard]] n_t Size() const;
 
@@ -135,14 +147,17 @@ public:
 	static void append(const path& file_path, const string& dump);
 
 private:
+	void EnsureReadOpen() const;
 	void ReadInternal(uint8_t* dst, n_t size, off_t offset = 0) const;
 
 private:
-	path              m_path;
-	up<std::ofstream> m_of_stream;
-	up<std::ifstream> m_if_stream;
-	int               m_fd {-1};
-	size_t            m_file_size {0};
+	path                    m_path;
+	up<std::ofstream>       m_of_stream;
+	// Defer read-only I/O so a File can also create a new output file. call_once
+	// publishes the descriptor and size safely to concurrent positional readers.
+	mutable std::once_flag m_read_once;
+	mutable int            m_fd {-1};
+	mutable n_t            m_file_size {0};
 };
 
 struct ReadEvent {

@@ -113,6 +113,7 @@ endif ()
 
 # Options : ------------------------------------------------------------------------------------------------------------
 option(FLS_BUILD_TESTING "Build Test" OFF)
+option(FLS_BUILD_STANDALONE_TESTS "Build regressions without GoogleTest or external datasets" OFF)
 option(FLS_BUILD_BENCHMARKING "Enable Benchmark Build" OFF)
 option(FLS_BUILD_EXAMPLES "Build Examples" OFF)
 option(FLS_BUILD_CUDA "Build FastLanes CUDA reader" OFF)
@@ -317,6 +318,12 @@ if (FLS_BUILD_TESTING)
 
 endif ()
 
+
+# Standalone regressions do not fetch GoogleTest or the dataset repository.
+if (FLS_BUILD_STANDALONE_TESTS)
+    enable_testing()
+    add_subdirectory(test/standalone)
+endif ()
 
 # FSST: ----------------------------------------------------------------------------------------------------------------
 if (FLS_ENABLE_FSST_TESTING_AND_BENCHMARKING)

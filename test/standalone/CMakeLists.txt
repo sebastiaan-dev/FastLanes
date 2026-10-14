@@ -1,0 +1,5 @@
+find_package(Threads REQUIRED)
+add_executable(fastlanes_integration_test integration_test.cpp)
+target_link_libraries(fastlanes_integration_test PRIVATE FastLanes Threads::Threads)
+add_test(NAME fastlanes_integration_test COMMAND fastlanes_integration_test)
+set_tests_properties(fastlanes_integration_test PROPERTIES TIMEOUT 60)
