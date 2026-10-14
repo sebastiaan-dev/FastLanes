@@ -18,6 +18,7 @@
 #include <fstream>
 #include <future>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -167,7 +168,10 @@ void TestNativeStringMaterialization(const fs::path& root, fastlanes::OperatorTo
 	Check((writer.get_table() == *decoded).is_equal, "Native FSST table round trip mismatch");
 	const auto result = dir / "decoded.csv";
 	reader.read_fls(output)->to_csv(result);
-	Check(File::read(result) == csv, "Native FSST string materialization mismatch");
+	// CSV output uses the platform's text newline convention (CRLF on Windows).
+	std::ifstream     stream(result);
+	const std::string decoded_csv {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+	Check(decoded_csv == csv, "Native FSST string materialization mismatch");
 }
 
 void TestNativeFloatMaterialization(const fs::path& root, fastlanes::OperatorToken token) {
