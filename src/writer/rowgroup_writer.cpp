@@ -4,10 +4,19 @@
 // src/writer/rowgroup_writer.cpp
 // ────────────────────────────────────────────────────────
 #include "fls/writer/rowgroup_writer.hpp"
+#include "fls/common/alias.hpp"
+#include "fls/common/common.hpp"
 #include "fls/encoder/encoder.hpp"
+#include "fls/footer/column_descriptor_generated.h"
+#include "fls/footer/rowgroup_descriptor.hpp"
+#include "fls/std/variant.hpp"
+#include "fls/table/rowgroup.hpp"
 #include "fls/wizard/wizard.hpp"
 #include "fls/writer/column_write_view.hpp"
 #include "fls/writer/file_writer.hpp"
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace fastlanes {
 
@@ -71,8 +80,7 @@ RowGroupWriter::RowGroupWriter(FileWriter& file_writer, Rowgroup& rowgroup)
 	}
 }
 
-RowGroupWriter::~RowGroupWriter() {
-}
+RowGroupWriter::~RowGroupWriter() = default;
 
 void RowGroupWriter::WriteColumn(const ColumnWriteView& view, const idx_t col_idx) {
 	WriteVector(view, col_idx);

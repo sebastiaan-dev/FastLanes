@@ -17,8 +17,10 @@
 #include <cstddef> // for std::byte
 #include <cstdint>
 #include <limits> // for std::numeric_limits
+#include <memory>
 #include <span>
 #include <stdexcept>
+#include <utility>
 #include <variant>
 
 namespace fastlanes {

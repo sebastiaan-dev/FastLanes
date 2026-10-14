@@ -90,6 +90,9 @@ void init(vector<up<ColumnDescriptorT>>& column_descriptors) {
 		column_descriptor->max          = make_unique<BinaryValueT>();
 		column_descriptor->min          = make_unique<BinaryValueT>();
 		column_descriptor->encoding_rpn = make_unique<RPNT>();
+		// Statistics gathering descends into structs, so their child descriptors
+		// need the same initialized metadata as top-level columns.
+		init(column_descriptor->children);
 	}
 }
 
@@ -112,10 +115,13 @@ struct constant_visitor {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_CONSTANT_FLT);
 				break;
 			}
+			case DataType::DECIMAL:
+			case DataType::TIMESTAMP:
 			case DataType::INT64: {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_CONSTANT_I64);
 				break;
 			}
+			case DataType::DATE:
 			case DataType::INT32: {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_CONSTANT_I32);
 				break;
@@ -190,6 +196,7 @@ struct null_visitor {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_NULL_I16);
 				break;
 			}
+			case DataType::DATE:
 			case DataType::INT32: {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_NULL_I32);
 				break;
@@ -303,6 +310,9 @@ void equality_check(const rowgroup_pt& rowgroup, vector<up<ColumnDescriptorT>>& 
 				switch (column_descriptor->data_type) {
 				case DataType::DOUBLE:
 				case DataType::FLS_STR:
+				case DataType::DECIMAL:
+				case DataType::TIMESTAMP:
+				case DataType::DATE:
 				case DataType::INT64:
 				case DataType::INT32:
 				case DataType::INT16:
@@ -642,6 +652,8 @@ bool IsMap1t1(const col_pt& first_col, const col_pt& second_col) {
 
 void PushExternalDictionaryEncoding(ColumnDescriptorT& second_column_descriptor, DataType common_data_type_for_index) {
 	switch (second_column_descriptor.data_type) {
+	case DataType::DECIMAL:
+	case DataType::TIMESTAMP:
 	case DataType::INT64: {
 		switch (common_data_type_for_index) {
 		case DataType::UINT32: {
@@ -661,6 +673,7 @@ void PushExternalDictionaryEncoding(ColumnDescriptorT& second_column_descriptor,
 		}
 		break;
 	}
+	case DataType::DATE:
 	case DataType::INT32: {
 		switch (common_data_type_for_index) {
 		case DataType::UINT32: {

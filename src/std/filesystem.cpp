@@ -4,22 +4,19 @@
 // src/std/filesystem.cpp
 // ────────────────────────────────────────────────────────
 #include "fls/std/filesystem.hpp"
-#include "fls/common/assert.hpp"
-#include <cerrno>     // errno
+#include <cerrno> // errno
+#include <cstdint>
+#include <fcntl.h>
 #include <filesystem> // std::filesystem::path, exists, is_directory, is_regular_file
 #include <fstream>
 #include <ios>       // std::ios::binary
 #include <stdexcept> // std::runtime_error
 #include <sys/stat.h>
-#include <system_error> // NEW – std::system_error / std::error_code
-#include <unistd.h>     // for ::close
-
-#if defined(__APPLE__)
-#include <sys/_types/_off_t.h>
-#include <sys/fcntl.h>
-#elif defined(__linux__)
-#include <fcntl.h>
-#include <sys/types.h> // off_t
+#include <system_error> // std::system_error / std::error_code
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
 #endif
 
 namespace fastlanes {
@@ -41,7 +38,11 @@ std::ifstream FileSystem::open_r(const path& file) {
 }
 
 int FileSystem::open_r_binary(const path& file) {
-	const int fd = ::open(file.c_str(), O_RDONLY | O_CLOEXEC);
+#if defined(_WIN32)
+	const int fd = ::_wopen(file.c_str(), _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+#else
+	const int   fd = ::open(file.c_str(), O_RDONLY | O_CLOEXEC);
+#endif
 	if (fd < 0) {
 		throw_last_error(file);
 	}
@@ -85,9 +86,15 @@ void FileSystem::check_if_file_exists(const fs::path& file_path) {
 	}
 }
 
-off_t FileSystem::read_file_size(const int fd) {
+int64_t FileSystem::read_file_size(const int fd) {
+#if defined(_WIN32)
+	struct _stat64 st {};
+	const int      result = ::_fstat64(fd, &st);
+#else
 	struct stat st {};
-	if (::fstat(fd, &st) != 0) {
+	const int   result = ::fstat(fd, &st);
+#endif
+	if (result != 0) {
 		// The caller owns fd, including on failure.
 		throw std::system_error(errno, std::generic_category(), "fstat");
 	}
@@ -100,7 +107,11 @@ void FileSystem::close(STREAM& stream) {
 }
 
 void FileSystem::close(const int fd) {
+#if defined(_WIN32)
+	::_close(fd);
+#else
 	::close(fd);
+#endif
 }
 
 template void FileSystem::close(std::ifstream&);

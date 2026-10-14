@@ -4,6 +4,20 @@
 // src/writer/ingest.cpp
 // ────────────────────────────────────────────────────────
 #include "fls/writer/ingest.hpp"
+#include "fls/cfg/cfg.hpp"
+#include "fls/common/alias.hpp"
+#include "fls/expression/data_type.hpp"
+#include "fls/std/string.hpp"
+#include "fls/table/rowgroup.hpp"
+#include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <limits>
+#include <span>
+#include <stdexcept>
+#include <string>
 
 namespace fastlanes {
 

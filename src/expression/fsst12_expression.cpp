@@ -8,6 +8,7 @@
 #include "fls/common/alias.hpp"
 #include "fls/common/assert.hpp"
 #include "fls/common/common.hpp"
+#include "fls/common/owned_span.hpp"
 #include "fls/cor/prm/fsst12/fsst12.h"
 #include "fls/expression/decoding_operator.hpp"
 #include "fls/expression/interpreter.hpp"
@@ -20,6 +21,7 @@
 #include "fls/std/variant.hpp"
 #include "fls/table/rowgroup.hpp"
 #include "fls_gen/untranspose/untranspose.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <utility>
 #include <variant> // for std::monostate

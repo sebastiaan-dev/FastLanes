@@ -22,9 +22,12 @@
 #include "fls/reader/rowgroup_view.hpp"
 #include "fls/std/filesystem.hpp"
 #include "fls/table/chunk.hpp" // for Chunk
-#include <memory>              // for make_unique, uniqu...
+#include <cstddef>
+#include <memory> // for make_unique, uniqu...
 #include <numeric>
 #include <optional>
+#include <utility>
+#include <vector>
 
 namespace fastlanes {
 

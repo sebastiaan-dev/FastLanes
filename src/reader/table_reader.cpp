@@ -4,6 +4,7 @@
 // src/reader/table_reader.cpp
 // ────────────────────────────────────────────────────────
 #include "fls/reader/table_reader.hpp"
+#include "flatbuffers/base.h"
 #include "fls/common/alias.hpp"
 #include "fls/cor/lyt/buf_pool.hpp"
 #include "fls/csv/csv.hpp"
@@ -11,11 +12,14 @@
 #include "fls/file/file_footer.hpp"
 #include "fls/file/file_header.hpp"
 #include "fls/footer/table_descriptor.hpp"
+#include "fls/io/file.hpp"
 #include "fls/reader/rowgroup_reader.hpp"
 #include "fls/std/filesystem.hpp"
 #include "fls/std/string.hpp"
 #include <filesystem> // std::filesystem::path, exists, is_directory, is_regular_file
-#include <utility>    // std::move
+#include <memory>
+#include <utility> // std::move
+#include <vector>
 
 namespace fastlanes {
 

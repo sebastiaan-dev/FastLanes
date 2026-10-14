@@ -5,27 +5,34 @@
 // ────────────────────────────────────────────────────────
 #include "fls/io/file.hpp"
 #include "fls/common/alias.hpp"
-#include "fls/common/assert.hpp"
 #include "fls/cor/lyt/buf.hpp"
 #include "fls/std/filesystem.hpp"
 #include "fls/std/string.hpp"
 #include <cerrno>
-#include <cstdint>    // for int64_t
-#include <filesystem> // for std::filesystem::file_size, std::filesystem::exists
-#include <fstream>    // for std::ifstream, std::ofstream
-#include <ios>        // for std::ios, std::streamoff, std::streamsize
-#include <memory>     // for std::make_unique
+#include <cstdint> // for int64_t
+#include <fstream> // for std::ifstream, std::ofstream
+#include <ios>     // for std::ios, std::streamoff, std::streamsize
+#include <memory>  // for std::make_unique
+#include <mutex>
 #include <sstream>
 #include <stdexcept> // for std::runtime_error
 #include <system_error>
+#include <utility>
 
-// POSIX
+#if defined(_WIN32)
+#include <algorithm>
+#include <cstdio>
+#include <io.h>
+#include <limits>
+#else
+#include <sys/types.h>
 #include <unistd.h>
+#endif
 
 namespace fastlanes {
 
-File::File(const path& p)
-    : m_path(p) {
+File::File(path p)
+    : m_path(std::move(p)) {
 }
 
 void File::EnsureReadOpen() const {
@@ -46,7 +53,7 @@ File::~File() {
 		FileSystem::close(*m_of_stream);
 	}
 	if (m_fd >= 0) {
-		::close(m_fd);
+		FileSystem::close(m_fd);
 	}
 }
 
@@ -101,7 +108,7 @@ void File::ReadRange(const Buf& buf, const n_t offset, const n_t size) {
 	}
 
 	uint8_t* dst = buf.mutable_data();
-	ReadInternal(dst, size, static_cast<off_t>(offset));
+	ReadInternal(dst, size, offset);
 }
 
 n_t File::Size() const {
@@ -109,15 +116,26 @@ n_t File::Size() const {
 	return m_file_size;
 }
 
-void File::ReadInternal(uint8_t* dst, const n_t size, const off_t offset) const {
+void File::ReadInternal(uint8_t* dst, const n_t size, const n_t offset) const {
+#if defined(_WIN32)
+	const std::lock_guard<std::mutex> lock(m_read_mutex);
+	if (::_lseeki64(m_fd, static_cast<int64_t>(offset), SEEK_SET) < 0) {
+		throw std::system_error(errno, std::generic_category(), "seek: " + m_path.string());
+	}
+#endif
 	n_t done = 0;
 	while (done < size) {
-		const ssize_t n_bytes = ::pread(m_fd, dst + done, size - done, offset + static_cast<off_t>(done));
+#if defined(_WIN32)
+		const auto count   = static_cast<unsigned int>(std::min<n_t>(size - done, std::numeric_limits<int>::max()));
+		const int  n_bytes = ::_read(m_fd, dst + done, count);
+#else
+		const ssize_t n_bytes = ::pread(m_fd, dst + done, size - done, static_cast<off_t>(offset + done));
+#endif
 		if (n_bytes < 0 && errno == EINTR) {
 			continue;
 		}
 		if (n_bytes < 0) {
-			throw std::system_error(errno, std::generic_category(), "pread: " + m_path.string());
+			throw std::system_error(errno, std::generic_category(), "read: " + m_path.string());
 		}
 		if (n_bytes == 0) {
 			throw std::runtime_error("Unexpected end of file: " + m_path.string());

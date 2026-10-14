@@ -99,9 +99,16 @@ if (FLAGS)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
 endif ()
 
+# clang-cl interprets -Wall as MSVC /Wall (equivalent to -Weverything).
+# Forward the GNU-style warning group explicitly instead, preserving our normal
+# warning policy without enabling C++98 compatibility diagnostics in C++20 code.
+set(FLS_WALL "-Wall")
+if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    set(FLS_WALL "/clang:-Wall")
+endif ()
 # Flags for warnings and errors:
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -Winconsistent-missing-override -Wshadow -Wconversion -Wnon-virtual-dtor -Wunused -Wpedantic -Woverloaded-virtual -Wshorten-64-to-32")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wshadow -Wconversion")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLS_WALL} -Werror -Winconsistent-missing-override -Wshadow -Wconversion -Wnon-virtual-dtor -Wunused -Wpedantic -Woverloaded-virtual -Wshorten-64-to-32")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FLS_WALL} -Werror -Wshadow -Wconversion")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     message("---------------------------------------------------------------------------------------------------------")
@@ -177,10 +184,18 @@ if (FLS_BUILD_TESTING OR FLS_BUILD_CUDA OR FLS_ENABLE_FSST_TESTING_AND_BENCHMARK
 
     enable_testing()
 
+    # GoogleTest 1.15's char8_t printer intentionally converts a code unit to
+    # char32_t; recent Clang diagnoses that conversion. Keep the exception
+    # confined to this third-party library, not FastLanes or its tests.
+    check_cxx_compiler_flag("-Wcharacter-conversion" FLS_HAS_CHARACTER_CONVERSION_WARNING)
+
     # Silence clang-tidy warnings from googletest (we don't want to lint third-party code)
     foreach (_t gtest gtest_main gmock gmock_main)
         if (TARGET ${_t})
             set_target_properties(${_t} PROPERTIES CXX_CLANG_TIDY "")
+            if (FLS_HAS_CHARACTER_CONVERSION_WARNING)
+                target_compile_options(${_t} PRIVATE -Wno-error=character-conversion)
+            endif ()
         endif ()
     endforeach ()
 

@@ -118,7 +118,7 @@ private:
 
 class File {
 public:
-	explicit File(const path& path);
+	explicit File(path path);
 	~File();
 
 	File(const File&)            = delete;
@@ -148,7 +148,7 @@ public:
 
 private:
 	void EnsureReadOpen() const;
-	void ReadInternal(uint8_t* dst, n_t size, off_t offset = 0) const;
+	void ReadInternal(uint8_t* dst, n_t size, n_t offset = 0) const;
 
 private:
 	path              m_path;
@@ -158,6 +158,10 @@ private:
 	mutable std::once_flag m_read_once;
 	mutable int            m_fd {-1};
 	mutable n_t            m_file_size {0};
+#if defined(_WIN32)
+	// The CRT has no pread: serialize each seek/read sequence instead.
+	mutable std::mutex m_read_mutex;
+#endif
 };
 
 struct ReadEvent {

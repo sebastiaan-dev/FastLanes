@@ -64,7 +64,7 @@ void WriteText(const fs::path& path, const std::string& text) {
 }
 
 void TestNewOutput(const fs::path& root) {
-	const auto        path = root / "new.bin";
+	const auto        path = root / fs::path(u8"new-\u00e9.bin");
 	const std::string text = "new output";
 	{
 		File output(path); // Must not try to open a nonexistent output for reading.
@@ -170,6 +170,26 @@ void TestNativeStringMaterialization(const fs::path& root, fastlanes::OperatorTo
 	Check(File::read(result) == csv, "Native FSST string materialization mismatch");
 }
 
+void TestNativeStructMaterialization(const fs::path& root) {
+	using namespace fastlanes;
+	const auto dir = root / "struct";
+	fs::create_directory(dir);
+	WriteText(
+	    dir / "schema.json",
+	    R"({"columns":[{"name":"record","type":"struct","children":[{"name":"x","type":"BIGINT"},{"name":"y","type":"BIGINT"}]}]})");
+	std::string json;
+	for (int i = 0; i < 1024; ++i) {
+		json += "{\"record\":{\"x\":" + std::to_string(i) + ",\"y\":" + std::to_string(i + 1000000000) + "}}\n";
+	}
+	WriteText(dir / "data.jsonl", json);
+	Connection writer;
+	const auto output = dir / "output.fls";
+	writer.read_json(dir).to_fls(output);
+	Connection reader;
+	const auto decoded = reader.read_fls(output)->materialize();
+	Check((writer.get_table() == *decoded).is_equal, "Native struct table round trip mismatch");
+}
+
 void TestWriterOptions(const fs::path& root, bool forced_pool, bool inline_footer) {
 	using namespace fastlanes;
 	const auto dir = root / (forced_pool ? "pool" : "schema");
@@ -224,7 +244,8 @@ int main() {
 		TestWriterOptions(root.path, true, true);
 		TestNativeStringMaterialization(root.path, fastlanes::OperatorToken::EXP_FSST_DELTA);
 		TestNativeStringMaterialization(root.path, fastlanes::OperatorToken::EXP_FSST12_DELTA);
-		std::cout << "All 8 standalone integration cases passed\n";
+		TestNativeStructMaterialization(root.path);
+		std::cout << "All 9 standalone integration cases passed\n";
 		return 0;
 	} catch (const std::exception& error) {
 		std::cerr << error.what() << '\n';

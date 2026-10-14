@@ -33,3 +33,21 @@ make test
 
 Validated through the DuckDB 1.5.6 extension on macOS arm64 / Apple Clang 21.
 The extension's `docs/development.md` describes the migration and test coverage.
+
+## CI follow-ups
+
+Compatibility CI also exercises the native library, examples, and bindings:
+
+- Writer forwarding uses explicit template arguments supported by Clang 18.
+- `Connection::to_fls()` retains its table for subsequent inspection/comparison,
+  and already-padded CSV vectors are not padded a second time.
+- Native FSST/FSST12 decoding allocates scratch storage on demand.
+- Nested statistics are initialized recursively; temporal/decimal columns select
+  their physical codecs without discarding logical metadata.
+- Windows uses binary, non-inheritable CRT descriptors with 64-bit sizes/offsets
+  and a per-file lock around seek/read. POSIX retains concurrent `pread`.
+- clang-cl receives the GNU `-Wall` group explicitly, not MSVC's `/Wall`.
+
+Local Apple Clang 21 validation includes all **260 native CTest cases** (excluding
+QuickFuzz, as in CI), the standalone I/O/materialization regressions, and the Rust
+example. The extension mirrors these fixes in its checked-in patch stack.
