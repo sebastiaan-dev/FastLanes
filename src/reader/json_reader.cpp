@@ -4,6 +4,7 @@
 // src/reader/json_reader.cpp
 // ────────────────────────────────────────────────────────
 #include "fls/reader/json_reader.hpp"
+#include "fls/cfg/cfg.hpp"
 #include "fls/common/alias.hpp"
 #include "fls/common/common.hpp"
 #include "fls/connection.hpp"

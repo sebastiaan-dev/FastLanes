@@ -8,6 +8,7 @@
 #include "fls/common/alias.hpp"
 #include "fls/footer/table_descriptor_generated.h"
 #include "fls/io/io.hpp"
+#include <cstddef>
 
 namespace fastlanes {
 

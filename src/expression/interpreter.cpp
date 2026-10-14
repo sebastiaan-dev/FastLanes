@@ -43,7 +43,7 @@ namespace fastlanes {
 static n_t LastOperandIndex(const ColumnView& column_view) {
 	// FlatBuffers omits empty vectors; nullary codecs such as ALP have no operands.
 	const auto* operands = column_view.column_descriptor.encoding_rpn()->operand_tokens();
-	return operands && operands->size() != 0 ? operands->size() - 1 : 0;
+	return operands && !operands->empty() ? operands->size() - 1 : 0;
 }
 /*--------------------------------------------------------------------------------------------------------------------*\
  * make_enc_uncompressed_expr
