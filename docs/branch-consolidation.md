@@ -62,12 +62,18 @@ patch, so a clean download does not depend on an unpublished local commit.
 
 ## Recovery and deletion status
 
-Every original origin branch tip is preserved locally under the annotated tag
+Every original origin branch tip is preserved locally and on GitHub under the annotated tag
 `archive/branch-consolidation/origin/<branch>`. The previous known-good integration
 is tagged `archive/branch-consolidation/current`. A verified full Git bundle is
 stored at `~/repos/FastLanes/.git/branch-archives/pre-consolidation.bundle`.
 
-No GitHub branches or tags have been deleted or pushed. After publishing the
-consolidated branch and archive tags, the old feature branches listed above can
-be retired; retain `main` and `release_v0.1`. There were no redundant local
-feature branches to delete: only main and the integration worktree branch exist.
+The consolidated `fix/duckdb-1.5.6` branch and all archive tags are published.
+After verifying the remote archives, the obsolete `cmake-overrride`,
+`lambda-interface`, `dev`, `update`, and `task/ifstream-to-pread` branches were
+deleted using an atomic push with exact-tip leases. Local remote-tracking refs
+were pruned.
+
+`main` remains unchanged at `6c2e8df38519b479a1e3d5496b765b40538de52d`.
+`release_v0.1` is also retained unchanged. No default branch was changed.
+There were no redundant local feature branches to delete: only main and the
+integration worktree branch exist.
