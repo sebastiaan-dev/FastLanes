@@ -16,13 +16,6 @@
 #include <numeric>
 
 namespace fastlanes {
-up<RowgroupReader> TableReader::get_rowgroup_reader(const n_t                 rowgroup_idx,
-                                                    const std::vector<idx_t>& column_ids) const {
-	auto rowgroup_reader = make_unique<RowgroupReader>(
-	    m_file_path, *m_table_descriptor->m_rowgroup_descriptors[rowgroup_idx], m_connection, column_ids);
-	return rowgroup_reader;
-}
-
 up<RowgroupReader> TableReader::get_rowgroup_reader(const n_t rowgroup_idx) const {
 	auto rowgroup_reader = make_unique<RowgroupReader>(
 	    m_file_path, *m_table_descriptor->m_rowgroup_descriptors[rowgroup_idx], m_connection);

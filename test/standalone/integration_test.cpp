@@ -10,6 +10,7 @@
 #include "fls/file/file_header.hpp"
 #include "fls/io/file.hpp"
 #include "fls/reader/table_reader.hpp"
+#include "fls/table/table.hpp"
 #include "fls/writer/file_writer.hpp"
 #include <atomic>
 #include <chrono>
@@ -147,6 +148,28 @@ void TestEmptyFile(const fs::path& root) {
 	input.ReadRange(buffer, 0, 0);
 }
 
+void TestNativeStringMaterialization(const fs::path& root, fastlanes::OperatorToken token) {
+	using namespace fastlanes;
+	const auto dir = root / (token == OperatorToken::EXP_FSST_DELTA ? "fsst" : "fsst12");
+	fs::create_directory(dir);
+	WriteText(dir / "schema.json", R"({"columns":[{"name":"value","type":"STRING"}]})");
+	std::string csv;
+	for (int i = 0; i < 2048; ++i) {
+		csv += "repeated-prefix-" + std::to_string(i) + "-string-payload\n";
+	}
+	WriteText(dir / "values.csv", csv);
+	Connection writer;
+	writer.force_schema_pool({token});
+	const auto output = dir / "output.fls";
+	writer.read_csv(dir).to_fls(output);
+	Connection reader;
+	const auto decoded = reader.read_fls(output)->materialize();
+	Check((writer.get_table() == *decoded).is_equal, "Native FSST table round trip mismatch");
+	const auto result = dir / "decoded.csv";
+	reader.read_fls(output)->to_csv(result);
+	Check(File::read(result) == csv, "Native FSST string materialization mismatch");
+}
+
 void TestWriterOptions(const fs::path& root, bool forced_pool, bool inline_footer) {
 	using namespace fastlanes;
 	const auto dir = root / (forced_pool ? "pool" : "schema");
@@ -181,6 +204,8 @@ void TestWriterOptions(const fs::path& root, bool forced_pool, bool inline_foote
 	Check(groups->Get(0)->m_n_tuples() == 1031, "Partial-vector row count was lost");
 	const auto* operators = groups->Get(0)->m_column_descriptors()->Get(0)->encoding_rpn()->operator_tokens();
 	Check(operators->size() == 1 && operators->Get(0) == tokens[0], "Forced writer encoding was lost");
+	const auto decoded = reader->materialize();
+	Check((connection.get_table() == *decoded).is_equal, "Native integer table round trip mismatch");
 
 	auto writer =
 	    FileWriter::Builder().WithPath(dir / "unused.fls").WithConnection(connection).WithSampleSize(3).Build();
@@ -197,7 +222,9 @@ int main() {
 		TestEmptyFile(root.path);
 		TestWriterOptions(root.path, false, false);
 		TestWriterOptions(root.path, true, true);
-		std::cout << "All 6 standalone integration cases passed\n";
+		TestNativeStringMaterialization(root.path, fastlanes::OperatorToken::EXP_FSST_DELTA);
+		TestNativeStringMaterialization(root.path, fastlanes::OperatorToken::EXP_FSST12_DELTA);
+		std::cout << "All 8 standalone integration cases passed\n";
 		return 0;
 	} catch (const std::exception& error) {
 		std::cerr << error.what() << '\n';

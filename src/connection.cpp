@@ -112,8 +112,8 @@ Connection& Connection::to_fls(const path& file_path) {
 
 		row_group_writer->Finalize();
 		row_group_writer->Flush();
-		// Prevent memory pressure build-up
-		rowgroup_ptr.reset();
+		// This API writes the connection's table, but does not consume it.
+		// Callers may still inspect or compare get_table() after serialization.
 	}
 
 	writer->Close();

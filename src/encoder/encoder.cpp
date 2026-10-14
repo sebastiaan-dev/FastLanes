@@ -18,8 +18,8 @@
 #include "fls/table/rowgroup.hpp" // for Rowgroup
 #include <cstdint>
 #include <fls/io/io.hpp>
-#include <iostream>
 #include <memory> // for unique_ptr
+#include <vector> // for std::vector
 
 namespace fastlanes {
 
