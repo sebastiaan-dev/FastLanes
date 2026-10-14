@@ -29,6 +29,7 @@
 //
 // You can contact the authors via the FSST12 source repository : https://github.com/cwida/fsst12
 #include <algorithm>
+#include <bit>
 #include <cassert>
 #include <cstring>
 #include <fcntl.h>
@@ -311,7 +312,7 @@ struct Counters12 {
 		// over zeros
 		u64 high = *(u64*)&count1High[pos1]; // note: this reads 8 subsequent counters [pos1..pos1+7]
 
-		u32 zero = high ? (__builtin_ctzl(high) >> 3) : 7; // number of zero bytes
+		u32 zero = high ? (static_cast<u32>(std::countr_zero(high)) >> 3) : 7; // number of zero bytes
 		high     = (high >> (zero << 3)) & 255;            // advance to nonzero counter
 		if (((pos1 += zero) >= FSST12_CODE_MAX) || !high)  // SKIP! advance pos2
 			return 0;                                      // all zero
@@ -325,7 +326,7 @@ struct Counters12 {
 		u64 high = *(u64*)&count2High[pos1][pos2 >> 1]; // note: this reads 16 subsequent counters [pos2..pos2+15]
 		high >>= (pos2 & 1) << 2;                       // odd pos2: ignore the lowest 4 bits & we see only 15 counters
 
-		u32 zero = high ? (__builtin_ctzl(high) >> 2) : (15 - (pos2 & 1)); // number of zero 4-bits counters
+		u32 zero = high ? (static_cast<u32>(std::countr_zero(high)) >> 2) : (15 - (pos2 & 1)); // number of zero 4-bits counters
 		high     = (high >> (zero << 2)) & 15;                             // advance to nonzero counter
 		if (((pos2 += zero) >= FSST12_CODE_MAX) || !high)                  // SKIP! advance pos2
 			return 0;                                                      // all zero

@@ -7,7 +7,7 @@
 | Ubuntu 24.04 x64 | Debug, Release | Debug: standalone regressions; Release: full non-QuickFuzz suite, standalone regressions, example, install |
 | Ubuntu 24.04 ARM | Debug, Release | Same; retain the existing Debug/shared exclusion |
 | `macos-latest` ARM | Release | Full non-QuickFuzz suite, standalone regressions, example, install |
-| Windows latest | Release | Example and install (no full or standalone suite) |
+| Windows latest | Release | Standalone regressions, example, install (no full dataset suite) |
 
 Both static and shared are validated except for the exclusion above. There is
 **one** primary macOS build job, not separate latest/pinned jobs. Debug is not
