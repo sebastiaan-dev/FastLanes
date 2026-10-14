@@ -165,13 +165,17 @@ void TestNativeStringMaterialization(const fs::path& root, fastlanes::OperatorTo
 	writer.read_csv(dir).to_fls(output);
 	Connection reader;
 	const auto decoded = reader.read_fls(output)->materialize();
-	Check((writer.get_table() == *decoded).is_equal, "Native FSST table round trip mismatch");
+	Check((writer.get_table() == *decoded).is_equal,
+	      token == OperatorToken::EXP_FSST_DELTA ? "Native FSST table round trip mismatch"
+	                                             : "Native FSST12 table round trip mismatch");
 	const auto result = dir / "decoded.csv";
 	reader.read_fls(output)->to_csv(result);
 	// CSV output uses the platform's text newline convention (CRLF on Windows).
 	std::ifstream     stream(result);
 	const std::string decoded_csv {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-	Check(decoded_csv == csv, "Native FSST string materialization mismatch");
+	Check(decoded_csv == csv,
+	      token == OperatorToken::EXP_FSST_DELTA ? "Native FSST string materialization mismatch"
+	                                             : "Native FSST12 string materialization mismatch");
 }
 
 void TestNativeFloatMaterialization(const fs::path& root, fastlanes::OperatorToken token) {

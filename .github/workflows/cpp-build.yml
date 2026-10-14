@@ -62,7 +62,7 @@ jobs:
           build-type: ${{ inputs.build-type }}
           shared: 'OFF'
           tests: ${{ inputs.tests && 'ON' || 'OFF' }}
-          standalone-tests: ${{ runner.os != 'Windows' && 'ON' || 'OFF' }}
+          standalone-tests: 'ON'
           examples: ${{ inputs.build-type == 'Release' && 'ON' || 'OFF' }}
           install: ${{ inputs.build-type == 'Release' && 'ON' || 'OFF' }}
       # Reconfigure the SAME Ninja tree; never copy objects between configurations.
@@ -74,7 +74,7 @@ jobs:
           build-type: ${{ inputs.build-type }}
           shared: 'ON'
           tests: ${{ inputs.tests && 'ON' || 'OFF' }}
-          standalone-tests: ${{ runner.os != 'Windows' && 'ON' || 'OFF' }}
+          standalone-tests: 'ON'
           examples: ${{ inputs.build-type == 'Release' && 'ON' || 'OFF' }}
           install: ${{ inputs.build-type == 'Release' && 'ON' || 'OFF' }}
       - name: Compiler cache statistics
