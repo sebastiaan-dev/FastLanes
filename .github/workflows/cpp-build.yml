@@ -47,6 +47,10 @@ jobs:
         uses: ./.github/actions/generate-dataset
       - name: Install LLVM
         uses: ./.github/actions/install-llvm
+        with:
+          # LLVM 18 ASan deadlocks before main() on macOS 26. Use a matching
+          # compiler/runtime pair with the dyld startup fix, not a timeout bump.
+          version: ${{ runner.os == 'macOS' && '22.1.8' || '18.1.4' }}
       - name: Set up Python on Windows
         if: runner.os == 'Windows'
         uses: actions/setup-python@v5

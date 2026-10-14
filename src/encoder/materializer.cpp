@@ -28,7 +28,9 @@
 #include "fls/reader/segment.hpp"
 #include "fls/table/rowgroup.hpp"
 #include <cstdint>
-#include <cstring>     // for std::memcpy
+#include <cstring> // for std::memcpy
+#include <stdexcept>
+#include <string>
 #include <type_traits> // for std::make_signed_t
 #include <utility>
 #include <variant>

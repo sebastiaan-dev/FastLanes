@@ -71,6 +71,17 @@ publish or enforce another workflow's release ordering.
 ## Shared implementation and observability
 
 `cpp-build.yml` and `cpp-lint.yml` are reusable workflows used by both tiers.
+Reusable C++ macOS build jobs request LLVM 22.1.8 (the Homebrew LLVM 22 toolchain);
+Linux, dedicated lint, and FSST jobs retain their existing LLVM 18 selection,
+while Windows retains its LLVM 20 compatibility upgrade. LLVM 18.1.8's ASan runtime deadlocks
+before `main()` on macOS 26 during dyld initialization, including plain
+`--gtest_list_tests` discovery. The macOS compiler/runtime update carries the
+[LLVM 22 fix](https://github.com/llvm/llvm-project/pull/188913); sanitizers,
+discovery timeouts, and build parallelism are not weakened to work around it.
+The startup deadlock was reproduced with a dependency-free ASan executable and
+single-job GoogleTest discovery. Both worked with LLVM 22.1.8, as did an ASan
+use-after-free detection canary. A fresh LLVM 22 shared FastLanes build then
+passed all 265 selected tests, the example, and install-header verification.
 Each build validates static first, then reconfigures **the same Ninja tree** for
 shared. CMake/Ninja track changed definitions and dependencies; objects are not
 copied or assumed interchangeable. Tests/examples run before reconfiguration.
