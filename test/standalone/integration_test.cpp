@@ -170,6 +170,29 @@ void TestNativeStringMaterialization(const fs::path& root, fastlanes::OperatorTo
 	Check(File::read(result) == csv, "Native FSST string materialization mismatch");
 }
 
+void TestNativeFloatMaterialization(const fs::path& root, fastlanes::OperatorToken token) {
+	using namespace fastlanes;
+	const auto dir = root / (token == OperatorToken::EXP_ALP_DBL ? "alp" : "alp-rd");
+	fs::create_directory(dir);
+	WriteText(dir / "schema.json", R"({"columns":[{"name":"value","type":"DOUBLE"}]})");
+	std::string csv;
+	for (int i = 0; i < 1031; ++i) {
+		csv += std::to_string(static_cast<double>(i) * 0.125) + "\n";
+	}
+	WriteText(dir / "values.csv", csv);
+	Connection writer;
+	writer.force_schema_pool({token});
+	const auto output = dir / "output.fls";
+	writer.read_csv(dir).to_fls(output);
+	Connection  reader;
+	auto        table = reader.read_fls(output);
+	const auto* rpn =
+	    table->get_descriptor().m_rowgroup_descriptors()->Get(0)->m_column_descriptors()->Get(0)->encoding_rpn();
+	Check(rpn->operand_tokens() == nullptr, "Expected an operand-free codec");
+	const auto decoded = table->materialize();
+	Check((writer.get_table() == *decoded).is_equal, "Native floating-point table round trip mismatch");
+}
+
 void TestNativeStructMaterialization(const fs::path& root) {
 	using namespace fastlanes;
 	const auto dir = root / "struct";
@@ -245,7 +268,9 @@ int main() {
 		TestNativeStringMaterialization(root.path, fastlanes::OperatorToken::EXP_FSST_DELTA);
 		TestNativeStringMaterialization(root.path, fastlanes::OperatorToken::EXP_FSST12_DELTA);
 		TestNativeStructMaterialization(root.path);
-		std::cout << "All 9 standalone integration cases passed\n";
+		TestNativeFloatMaterialization(root.path, fastlanes::OperatorToken::EXP_ALP_DBL);
+		TestNativeFloatMaterialization(root.path, fastlanes::OperatorToken::EXP_ALP_RD_DBL);
+		std::cout << "All 11 standalone integration cases passed\n";
 		return 0;
 	} catch (const std::exception& error) {
 		std::cerr << error.what() << '\n';

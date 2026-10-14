@@ -15,6 +15,7 @@
 #include <system_error> // std::system_error / std::error_code
 #if defined(_WIN32)
 #include <io.h>
+#include <share.h>
 #else
 #include <unistd.h>
 #endif
@@ -39,7 +40,11 @@ std::ifstream FileSystem::open_r(const path& file) {
 
 int FileSystem::open_r_binary(const path& file) {
 #if defined(_WIN32)
-	const int fd = ::_wopen(file.c_str(), _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+	int        fd    = -1;
+	const auto error = ::_wsopen_s(&fd, file.c_str(), _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, 0);
+	if (error != 0) {
+		throw std::system_error(error, std::generic_category(), file.string());
+	}
 #else
 	const int   fd = ::open(file.c_str(), O_RDONLY | O_CLOEXEC);
 #endif

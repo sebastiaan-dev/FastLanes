@@ -6,7 +6,6 @@
 #include "fls/file/file_footer.hpp"
 #include "fls/common/alias.hpp"
 #include "fls/common/status.hpp"
-#include "fls/connection.hpp"
 #include "fls/file/file_header.hpp"
 #include "fls/info.hpp"
 #include "fls/io/file.hpp"
