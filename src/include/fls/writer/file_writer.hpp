@@ -1,3 +1,8 @@
+// ────────────────────────────────────────────────────────
+// |                      FastLanes                       |
+// ────────────────────────────────────────────────────────
+// src/include/fls/writer/file_writer.hpp
+// ────────────────────────────────────────────────────────
 #ifndef FLS_WRITER_WRITER_HPP
 #define FLS_WRITER_WRITER_HPP
 
@@ -122,6 +127,11 @@ public:
 
 		Builder& WithForcedSchema(vector<OperatorToken>&& operator_token) {
 			options.forced_schema = std::move(operator_token);
+			return *this;
+		}
+
+		Builder& WithSampleSize(const n_t n_vecs) {
+			options.sample_size = n_vecs;
 			return *this;
 		}
 

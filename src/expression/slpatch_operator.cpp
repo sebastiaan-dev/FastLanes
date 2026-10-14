@@ -117,18 +117,15 @@ dec_slpatch_opr<PT>::dec_slpatch_opr(PhysicalExpr&     physical_expr,
                                      const ColumnView& column_view,
                                      InterpreterState& state)
     : data(nullptr)
-    , exceptions_segment(column_view.GetSegment(static_cast<uint32_t>(
-          column_view.column_descriptor.encoding_rpn()
-              ->operand_tokens()
-              ->Get(static_cast<uint32_t>(state.cur_operand - 2)))))
-    , exceptions_position_segment(column_view.GetSegment(static_cast<uint32_t>(
-          column_view.column_descriptor.encoding_rpn()
-              ->operand_tokens()
-              ->Get(static_cast<uint32_t>(state.cur_operand - 1)))))
-    , n_exceptions_segment(column_view.GetSegment(static_cast<uint32_t>(
-          column_view.column_descriptor.encoding_rpn()
-              ->operand_tokens()
-              ->Get(static_cast<uint32_t>(state.cur_operand - 0))))) {
+    , exceptions_segment(column_view.GetSegment(
+          static_cast<uint32_t>(column_view.column_descriptor.encoding_rpn()->operand_tokens()->Get(
+              static_cast<uint32_t>(state.cur_operand - 2)))))
+    , exceptions_position_segment(column_view.GetSegment(
+          static_cast<uint32_t>(column_view.column_descriptor.encoding_rpn()->operand_tokens()->Get(
+              static_cast<uint32_t>(state.cur_operand - 1)))))
+    , n_exceptions_segment(column_view.GetSegment(
+          static_cast<uint32_t>(column_view.column_descriptor.encoding_rpn()->operand_tokens()->Get(
+              static_cast<uint32_t>(state.cur_operand - 0))))) {
 	state.cur_operand -= 3;
 
 	visit(SLPatchExprVisitor {*this}, physical_expr.operators.back());

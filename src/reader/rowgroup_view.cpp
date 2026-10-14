@@ -8,14 +8,14 @@
 #include "fls/common/assert.hpp"
 #include "fls/footer/rowgroup_descriptor_generated.h"
 #include "fls/reader/column_view.hpp"
-#include "fls/std/span.hpp"
-#include <cstddef>  // for std::byte
+#include <memory>
 #include <optional> // for std::optional
+#include <vector>
 
 namespace fastlanes {
 
 RowgroupView::RowgroupView(const std::vector<std::optional<ColumnBufferReference>>& cols_by_id,
-                           const RowgroupDescriptor&                               footer) {
+                           const RowgroupDescriptor&                                footer) {
 	columns.resize(cols_by_id.size());
 
 	for (idx_t id = 0; id < static_cast<idx_t>(cols_by_id.size()); ++id) {

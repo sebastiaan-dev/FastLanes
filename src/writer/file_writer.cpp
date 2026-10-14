@@ -1,18 +1,28 @@
+// ────────────────────────────────────────────────────────
+// |                      FastLanes                       |
+// ────────────────────────────────────────────────────────
+// src/writer/file_writer.cpp
+// ────────────────────────────────────────────────────────
 #include "fls/writer/file_writer.hpp"
+#include "fls/common/alias.hpp"
+#include "fls/cor/lyt/buf.hpp"
 #include "fls/file/file_footer.hpp"
 #include "fls/file/file_header.hpp"
 #include "fls/flatbuffers/flatbuffers.hpp"
 #include "fls/footer/table_descriptor_generated.h"
 #include "fls/info.hpp"
+#include "fls/io/file.hpp"
+#include "fls/io/io.hpp"
 #include "fls/writer/rowgroup_writer.hpp"
-#include <iostream>
+#include <mutex>
+#include <utility>
 
 namespace fastlanes {
 
 FileWriter::FileWriter(WriterOptions&& opts)
     : options(std::move(opts)) {
 
-    };
+      };
 
 void FileWriter::Open() {
 	table_descriptor = make_unique<TableDescriptorT>();

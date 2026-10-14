@@ -8,6 +8,7 @@
 #include "fls/common/alias.hpp"
 #include "fls/common/assert.hpp"
 #include "fls/common/common.hpp"
+#include "fls/common/owned_span.hpp"
 #include "fls/cor/prm/fsst12/fsst12.h"
 #include "fls/expression/decoding_operator.hpp"
 #include "fls/expression/interpreter.hpp"
@@ -20,6 +21,7 @@
 #include "fls/std/variant.hpp"
 #include "fls/table/rowgroup.hpp"
 #include "fls_gen/untranspose/untranspose.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <utility>
 #include <variant> // for std::monostate
@@ -130,6 +132,8 @@ void dec_fsst12_opr::PointTo(const n_t vec_n) {
 }
 
 void dec_fsst12_opr::Decode(vector<uint8_t>& byte_arr_vec, vector<ofs_t>& length_vec) {
+	// Keep the native materializer's scratch buffer lazy, like the FSST path.
+	tmp_string.resize(CFG::String::max_bytes_per_string);
 	auto* in_byte_arr = reinterpret_cast<uint8_t*>(fsst12_bytes_segment_view.data);
 
 	length_vec.resize(length_vec.size() + CFG::VEC_SZ);

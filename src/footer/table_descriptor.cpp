@@ -128,7 +128,7 @@ TableDescriptorHandle TableDescriptorHandle::FromFile(const path& file_path, boo
 }
 
 TableDescriptorHandle TableDescriptorHandle::FromFileSlice(const io& io, n_t offset, n_t size, bool verify) {
-	Buf  buf;
+	Buf buf;
 	IO::range_read(io, buf, offset, size);
 
 	const auto*     p = reinterpret_cast<const uint8_t*>(buf.data());

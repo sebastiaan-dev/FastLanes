@@ -5,8 +5,8 @@
 // ────────────────────────────────────────────────────────
 #include "fls/reader/rowgroup_reader.hpp" //
 #include "fls/common/alias.hpp"
-#include "fls/connection.hpp"                     // for Connector (ptr only)
-#include "fls/cor/lyt/buf.hpp"                    // for Buf
+#include "fls/connection.hpp"  // for Connector (ptr only)
+#include "fls/cor/lyt/buf.hpp" // for Buf
 #include "fls/cor/lyt/buf_pool.hpp"
 #include "fls/csv/csv.hpp"                        // for CSV
 #include "fls/encoder/materializer.hpp"           //
@@ -22,17 +22,20 @@
 #include "fls/reader/rowgroup_view.hpp"
 #include "fls/std/filesystem.hpp"
 #include "fls/table/chunk.hpp" // for Chunk
-#include <memory>              // for make_unique, uniqu...
+#include <cstddef>
+#include <memory> // for make_unique, uniqu...
 #include <numeric>
 #include <optional>
+#include <utility>
+#include <vector>
 
 namespace fastlanes {
 
-RowgroupReader::RowgroupReader(const io&                  io,
+RowgroupReader::RowgroupReader(const io&                 io,
                                const RowgroupDescriptor& rowgroup_descriptor,
-                               Connection&                connection,
-                               const std::vector<idx_t>&  column_ids,
-                               std::shared_ptr<BufPool>   buffer_pool)
+                               Connection&               connection,
+                               const std::vector<idx_t>& column_ids,
+                               std::shared_ptr<BufPool>  buffer_pool)
     : m_connection(connection)
     , m_rowgroup_descriptor(rowgroup_descriptor)
     , m_buffer_pool(std::move(buffer_pool))
@@ -211,8 +214,8 @@ RowgroupReader::RowgroupReader(const io&                  io,
 
 		for (const auto& col_idx : m_column_ids) {
 			const auto& cd         = m_rowgroup_descriptor.m_column_descriptors()->Get(col_idx);
-			auto  col_size   = cd->total_size();
-			auto  col_offset = m_rowgroup_descriptor.m_offset() + cd->column_offset();
+			auto        col_size   = cd->total_size();
+			auto        col_offset = m_rowgroup_descriptor.m_offset() + cd->column_offset();
 
 			auto buffer = m_buffer_pool ? m_buffer_pool->Acquire(col_size) : std::make_shared<Buf>(col_size);
 			IO::range_read(io, *buffer, col_offset, col_size);
@@ -251,7 +254,7 @@ RowgroupReader::RowgroupReader(const io&                  io,
 		m_expressions.reserve(m_column_ids.size());
 		for (const auto& col_idx : m_column_ids) {
 			const auto& column_descriptor = m_rowgroup_descriptor.m_column_descriptors()->Get(col_idx);
-			auto& column_view       = (*m_rowgroup_view)[col_idx];
+			auto&       column_view       = (*m_rowgroup_view)[col_idx];
 
 			InterpreterState state;
 			auto             physical_expr = make_decoding_expression(*column_descriptor, column_view, *this, state);
@@ -261,10 +264,10 @@ RowgroupReader::RowgroupReader(const io&                  io,
 	}
 }
 
-RowgroupReader::RowgroupReader(const path&                file_path,
+RowgroupReader::RowgroupReader(const path&               file_path,
                                const RowgroupDescriptor& rowgroup_descriptor,
-                               Connection&                connection,
-                               std::shared_ptr<BufPool>   buffer_pool)
+                               Connection&               connection,
+                               std::shared_ptr<BufPool>  buffer_pool)
     : m_connection(connection)
     , m_rowgroup_descriptor(rowgroup_descriptor)
     , m_buffer_pool(std::move(buffer_pool)) {
@@ -282,8 +285,8 @@ RowgroupReader::RowgroupReader(const path&                file_path,
 
 		for (const auto& col_idx : m_column_ids) {
 			const auto& cd         = m_rowgroup_descriptor.m_column_descriptors()->Get(col_idx);
-			auto  col_size   = cd->total_size();
-			auto  col_offset = m_rowgroup_descriptor.m_offset() + cd->column_offset();
+			auto        col_size   = cd->total_size();
+			auto        col_offset = m_rowgroup_descriptor.m_offset() + cd->column_offset();
 
 			auto buffer = m_buffer_pool ? m_buffer_pool->Acquire(col_size) : std::make_shared<Buf>(col_size);
 			IO::range_read(io, *buffer, col_offset, col_size);
@@ -322,7 +325,7 @@ RowgroupReader::RowgroupReader(const path&                file_path,
 		m_expressions.reserve(m_column_ids.size());
 		for (const auto& col_idx : m_column_ids) {
 			const auto& column_descriptor = m_rowgroup_descriptor.m_column_descriptors()->Get(col_idx);
-			auto& column_view       = (*m_rowgroup_view)[col_idx];
+			auto&       column_view       = (*m_rowgroup_view)[col_idx];
 
 			InterpreterState state;
 			auto             physical_expr = make_decoding_expression(*column_descriptor, column_view, *this, state);
@@ -353,7 +356,7 @@ up<Rowgroup> RowgroupReader::materialize() {
 
 	// Construct Rowgroup from the native descriptor
 	// TODO: Capacity is not used
-	auto rowgroup_up = std::make_unique<Rowgroup>(*rg_native, 0);
+	auto               rowgroup_up = std::make_unique<Rowgroup>(*rg_native, 0);
 	const Materializer materializer {*rowgroup_up};
 
 	const n_t n_vec = static_cast<n_t>(m_rowgroup_descriptor.m_n_vec());

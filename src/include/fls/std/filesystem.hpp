@@ -6,6 +6,7 @@
 #ifndef FLS_STD_FILESYSTEM_HPP
 #define FLS_STD_FILESYSTEM_HPP
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 
@@ -34,7 +35,7 @@ public:
 	static void check_if_dir_exists(const path& dir_path);
 	static void check_if_file_exists(const path& path);
 	/// read file size
-	static off_t read_file_size(int fd);
+	static int64_t read_file_size(int fd);
 };
 
 } // namespace fastlanes

@@ -56,7 +56,7 @@ jobs:
           - ubuntu-22.04-arm
           - macos-15
           - macos-14
-          - macos-13
+          - macos-15-intel
         build_type: [ Debug, Release ]
         cxx: [ clang++ ]
         shared_lib: [ false, true ]
@@ -156,7 +156,7 @@ jobs:
           - ubuntu-22.04-arm
           - macos-15
           - macos-14
-          - macos-13
+          - macos-15-intel
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -244,7 +244,7 @@ jobs:
           - ubuntu-22.04-arm
           - macos-15
           - macos-14
-          - macos-13
+          - macos-15-intel
         build_type: [ Release ]
         shared_lib: [ false, true ]
     runs-on: ${{ matrix.platform }}

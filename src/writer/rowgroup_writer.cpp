@@ -1,15 +1,31 @@
+// ────────────────────────────────────────────────────────
+// |                      FastLanes                       |
+// ────────────────────────────────────────────────────────
+// src/writer/rowgroup_writer.cpp
+// ────────────────────────────────────────────────────────
 #include "fls/writer/rowgroup_writer.hpp"
+#include "fls/common/alias.hpp"
+#include "fls/common/common.hpp"
 #include "fls/encoder/encoder.hpp"
+#include "fls/footer/column_descriptor_generated.h"
+#include "fls/footer/rowgroup_descriptor.hpp"
+#include "fls/std/variant.hpp"
+#include "fls/table/rowgroup.hpp"
 #include "fls/wizard/wizard.hpp"
 #include "fls/writer/column_write_view.hpp"
 #include "fls/writer/file_writer.hpp"
+#include <memory>
+#include <utility>
+#include <vector>
 
 namespace fastlanes {
 
-static void fill_in(col_pt& col, const n_t how_many_to_fill) {
+static void fill_in(col_pt& col, const n_t padded_count) {
 	visit(overloaded {
 	          [&](up<FLSStrColumn>& string_col) {
 		          const auto last_value_length = string_col->length_arr.back();
+		          const auto how_many_to_fill =
+		              padded_count > string_col->length_arr.size() ? padded_count - string_col->length_arr.size() : 0;
 
 		          for (n_t val_idx {0}; val_idx < how_many_to_fill; val_idx++) {
 			          const auto size = string_col->byte_arr.size();
@@ -22,7 +38,9 @@ static void fill_in(col_pt& col, const n_t how_many_to_fill) {
 		          }
 	          },
 	          [&]<typename PT>(up<TypedCol<PT>>& typed_col) {
-		          PT last_element = typed_col->data.back();
+		          PT         last_element = typed_col->data.back();
+		          const auto how_many_to_fill =
+		              padded_count > typed_col->data.size() ? padded_count - typed_col->data.size() : 0;
 		          for (n_t val_idx {0}; val_idx < how_many_to_fill; val_idx++) {
 			          typed_col->data.push_back(last_element);
 		          }
@@ -62,8 +80,7 @@ RowGroupWriter::RowGroupWriter(FileWriter& file_writer, Rowgroup& rowgroup)
 	}
 }
 
-RowGroupWriter::~RowGroupWriter() {
-}
+RowGroupWriter::~RowGroupWriter() = default;
 
 void RowGroupWriter::WriteColumn(const ColumnWriteView& view, const idx_t col_idx) {
 	WriteVector(view, col_idx);
@@ -80,13 +97,18 @@ void RowGroupWriter::Finalize() {
 			continue;
 		}
 
-		const auto to_fill = file_writer.options.vector_size - leftover;
-		fill_in(col_pt, to_fill);
+		// CSV input may already have vector padding. Append only missing values.
+		const auto padded_count = n_tuples_per_column[col_idx] + file_writer.options.vector_size - leftover;
+		fill_in(col_pt, padded_count);
 	}
 
 	rg.n_tup = n_tuples_per_column[0];
 	rg.Init();
-	rg.Cast();
+	// Forced encodings are selected for the declared physical types. Narrowing
+	// first can leave an INT64 encoding paired with an INT16 column, for example.
+	if (!file_writer.IsForcedSchema() && !file_writer.IsForcedSchemaPool()) {
+		rg.Cast();
+	}
 	rg.Finalize();
 	rg.GetStatistics();
 	descriptor             = make_rowgroup_descriptor(rg);

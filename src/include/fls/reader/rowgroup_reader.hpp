@@ -13,8 +13,8 @@
 #include "fls/reader/rowgroup_reader.hpp"
 #include "fls/std/filesystem.hpp" // for path
 #include "fls/std/vector.hpp"     // for vector
-#include <memory>
 #include "fls/table/chunk.hpp"    // for Chunk
+#include <memory>
 
 namespace fastlanes {
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -30,10 +30,10 @@ public:
 	                        Connection&               fls,
 	                        const std::vector<idx_t>& column_ids,
 	                        std::shared_ptr<BufPool>  buffer_pool);
-	explicit RowgroupReader(const path&                 file_path,
-	                        const RowgroupDescriptor&   rowgroup_descriptor,
-	                        Connection&                 fls,
-	                        std::shared_ptr<BufPool>    buffer_pool);
+	explicit RowgroupReader(const path&               file_path,
+	                        const RowgroupDescriptor& rowgroup_descriptor,
+	                        Connection&               fls,
+	                        std::shared_ptr<BufPool>  buffer_pool);
 
 public:
 	vector<sp<PhysicalExpr>>& get_chunk(n_t vec_idx);

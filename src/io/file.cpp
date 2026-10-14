@@ -5,40 +5,46 @@
 // ────────────────────────────────────────────────────────
 #include "fls/io/file.hpp"
 #include "fls/common/alias.hpp"
-#include "fls/common/assert.hpp"
 #include "fls/cor/lyt/buf.hpp"
 #include "fls/std/filesystem.hpp"
 #include "fls/std/string.hpp"
-#include <cstdint>    // for int64_t
-#include <filesystem> // for std::filesystem::file_size, std::filesystem::exists
-#include <fstream>    // for std::ifstream, std::ofstream
-#include <ios>        // for std::ios, std::streamoff, std::streamsize
-#include <memory>     // for std::make_unique
+#include <cerrno>
+#include <cstdint> // for int64_t
+#include <fstream> // for std::ifstream, std::ofstream
+#include <ios>     // for std::ios, std::streamoff, std::streamsize
+#include <memory>  // for std::make_unique
+#include <mutex>
 #include <sstream>
 #include <stdexcept> // for std::runtime_error
+#include <system_error>
+#include <utility>
 
-// POSIX
-#include <fcntl.h>
-#include <sys/stat.h>
+#if defined(_WIN32)
+#include <algorithm>
+#include <cstdio>
+#include <io.h>
+#include <limits>
+#else
 #include <unistd.h>
+#endif
 
 namespace fastlanes {
 
-File::File(const path& p)
-    : m_path(p) {
+File::File(path p)
+    : m_path(std::move(p)) {
+}
 
-	const int fd = ::open(m_path.c_str(), O_RDONLY | O_CLOEXEC);
-	if (fd < 0) {
-		FLS_ABORT("Could not open file in read-only mode")
-	}
-	m_fd = fd;
-
-	struct stat st;
-	if (::fstat(fd, &st) != 0) {
-		::close(fd);
-		FLS_ABORT("Could not stat file in read-only mode")
-	}
-	m_file_size = static_cast<n_t>(st.st_size);
+void File::EnsureReadOpen() const {
+	std::call_once(m_read_once, [this] {
+		const int fd = FileSystem::open_r_binary(m_path);
+		try {
+			m_file_size = static_cast<n_t>(FileSystem::read_file_size(fd));
+		} catch (...) {
+			FileSystem::close(fd);
+			throw;
+		}
+		m_fd = fd;
+	});
 }
 
 File::~File() {
@@ -46,19 +52,22 @@ File::~File() {
 		FileSystem::close(*m_of_stream);
 	}
 	if (m_fd >= 0) {
-		::close(m_fd);
+		FileSystem::close(m_fd);
 	}
 }
 
 void File::Write(const Buf& buf) {
 	if (!m_of_stream) {
-		m_of_stream = std::make_unique<std::ofstream>(FileSystem::open_w(m_path));
+		m_of_stream = std::make_unique<std::ofstream>(FileSystem::open_w_binary(m_path));
 	}
 	m_of_stream->write(reinterpret_cast<const char*>(buf.data()), static_cast<std::streamsize>(buf.Size()));
 }
 
-void File::Read(Buf& buf) {
-	FLS_ASSERT_LE(m_file_size, buf.Capacity());
+void File::Read(const Buf& buf) {
+	EnsureReadOpen();
+	if (m_file_size > buf.Capacity()) {
+		throw std::out_of_range("File::Read buffer is too small");
+	}
 
 	uint8_t* dst = buf.mutable_data();
 	ReadInternal(dst, m_file_size);
@@ -91,27 +100,44 @@ void File::Append(const char* pointer, n_t size) {
 	}
 }
 
-void File::ReadRange(Buf& buf, const n_t offset, const n_t size) {
-	FLS_ASSERT_LE(offset + size, m_file_size);
-	FLS_ASSERT_LE(size, buf.Capacity());
+void File::ReadRange(const Buf& buf, const n_t offset, const n_t size) {
+	EnsureReadOpen();
+	if (offset > m_file_size || size > m_file_size - offset || size > buf.Capacity()) {
+		throw std::out_of_range("File::ReadRange exceeds file or buffer bounds");
+	}
 
 	uint8_t* dst = buf.mutable_data();
-	ReadInternal(dst, size, static_cast<off_t>(offset));
+	ReadInternal(dst, size, offset);
 }
 
 n_t File::Size() const {
+	EnsureReadOpen();
 	return m_file_size;
 }
 
-void File::ReadInternal(uint8_t* dst, const n_t size, const off_t offset) const {
+void File::ReadInternal(uint8_t* dst, const n_t size, const n_t offset) const {
+#if defined(_WIN32)
+	const std::lock_guard<std::mutex> lock(m_read_mutex);
+	if (::_lseeki64(m_fd, static_cast<int64_t>(offset), SEEK_SET) < 0) {
+		throw std::system_error(errno, std::generic_category(), "seek: " + m_path.string());
+	}
+#endif
 	n_t done = 0;
 	while (done < size) {
-		const ssize_t n_bytes = ::pread(m_fd, dst + done, size - done, offset + static_cast<off_t>(done));
+#if defined(_WIN32)
+		const auto count   = static_cast<unsigned int>(std::min<n_t>(size - done, std::numeric_limits<int>::max()));
+		const int  n_bytes = ::_read(m_fd, dst + done, count);
+#else
+		const auto n_bytes = ::pread(m_fd, dst + done, size - done, static_cast<int64_t>(offset + done));
+#endif
 		if (n_bytes < 0 && errno == EINTR) {
 			continue;
 		}
-		if (n_bytes <= 0) {
-			FLS_ABORT("Could not read from file in read-only mode")
+		if (n_bytes < 0) {
+			throw std::system_error(errno, std::generic_category(), "read: " + m_path.string());
+		}
+		if (n_bytes == 0) {
+			throw std::runtime_error("Unexpected end of file: " + m_path.string());
 		}
 
 		done += static_cast<n_t>(n_bytes);

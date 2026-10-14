@@ -190,8 +190,7 @@ struct ColumnDescriptor FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
 		       VerifyOffset(verifier, VT_SEGMENT_DESCRIPTORS) && verifier.VerifyVector(segment_descriptors()) &&
 		       verifier.VerifyVectorOfTables(segment_descriptors()) && VerifyField<uint64_t>(verifier, VT_N_NULL, 8) &&
 		       VerifyOffset(verifier, VT_FIX_ME_DECIMAL_TYPE) && verifier.VerifyTable(fix_me_decimal_type()) &&
-		       VerifyOffset(verifier, VT_MIN) && verifier.VerifyTable(min()) &&
-		       verifier.EndTable();
+		       VerifyOffset(verifier, VT_MIN) && verifier.VerifyTable(min()) && verifier.EndTable();
 	}
 	ColumnDescriptorT* UnPack(const ::flatbuffers::resolver_function_t* _resolver = nullptr) const;
 	void UnPackTo(ColumnDescriptorT* _o, const ::flatbuffers::resolver_function_t* _resolver = nullptr) const;
@@ -273,7 +272,7 @@ inline ::flatbuffers::Offset<ColumnDescriptor> CreateColumnDescriptor(
                                                   segment_descriptors = 0,
     uint64_t                                      n_null              = 0,
     ::flatbuffers::Offset<fastlanes::DecimalType> fix_me_decimal_type = 0,
-    ::flatbuffers::Offset<fastlanes::BinaryValue> min                = 0) {
+    ::flatbuffers::Offset<fastlanes::BinaryValue> min                 = 0) {
 	ColumnDescriptorBuilder builder_(_fbb);
 	builder_.add_n_null(n_null);
 	builder_.add_total_size(total_size);
@@ -305,7 +304,7 @@ inline ::flatbuffers::Offset<ColumnDescriptor> CreateColumnDescriptorDirect(
     const std::vector<::flatbuffers::Offset<fastlanes::SegmentDescriptor>>* segment_descriptors = nullptr,
     uint64_t                                                                n_null              = 0,
     ::flatbuffers::Offset<fastlanes::DecimalType>                           fix_me_decimal_type = 0,
-    ::flatbuffers::Offset<fastlanes::BinaryValue>                           min                = 0) {
+    ::flatbuffers::Offset<fastlanes::BinaryValue>                           min                 = 0) {
 	auto name__     = name ? _fbb.CreateString(name) : 0;
 	auto children__ = children ? _fbb.CreateVector<::flatbuffers::Offset<fastlanes::ColumnDescriptor>>(*children) : 0;
 	auto expr_space__ =

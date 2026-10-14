@@ -3,27 +3,24 @@
 // ────────────────────────────────────────────────────────
 // src/wizard/wizard.cpp
 // ────────────────────────────────────────────────────────
-#include "fls/wizard/wizard.hpp"
 #include "fls/cfg/cfg.hpp"
 #include "fls/common/alias.hpp" // for n_t, up, idx_t, make_unique
 #include "fls/common/assert.hpp"
 #include "fls/common/common.hpp" // for FLS_UNREACHABLE
 #include "fls/common/string.hpp"
-#include "fls/connection.hpp"           // for Connector
-#include "fls/expression/data_type.hpp" // for DataType, get_physical_type
 #include "fls/expression/expression_executor.hpp"
 #include "fls/expression/interpreter.hpp"
+#include "fls/expression/physical_expression.hpp"
 #include "fls/expression/rpn.hpp" // for Operator, Operand, NewRPN
-#include "fls/footer/column_descriptor.hpp"
 #include "fls/footer/column_descriptor_generated.h"
 #include "fls/footer/operator_token_generated.h"
 #include "fls/footer/rowgroup_descriptor.hpp" // for ColumnMetadata, RowgroupDescriptor
-#include "fls/footer/table_descriptor.hpp"
 #include "fls/std/unordered_map.hpp"
 #include "fls/std/variant.hpp"    // for visit
 #include "fls/std/vector.hpp"     // for vector
 #include "fls/table/rowgroup.hpp" // for Rowgroup, TypedCol (ptr ...
 #include "fls/wizard/sampling_layout.hpp"
+#include "fls/wizard/wizard_helpers.hpp"
 #include <algorithm> // std::min_element
 #include <cstdint>   // int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t
 #include <cstring>
@@ -90,6 +87,9 @@ void init(vector<up<ColumnDescriptorT>>& column_descriptors) {
 		column_descriptor->max          = make_unique<BinaryValueT>();
 		column_descriptor->min          = make_unique<BinaryValueT>();
 		column_descriptor->encoding_rpn = make_unique<RPNT>();
+		// Statistics gathering descends into structs, so their child descriptors
+		// need the same initialized metadata as top-level columns.
+		init(column_descriptor->children);
 	}
 }
 
@@ -112,10 +112,13 @@ struct constant_visitor {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_CONSTANT_FLT);
 				break;
 			}
+			case DataType::DECIMAL:
+			case DataType::TIMESTAMP:
 			case DataType::INT64: {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_CONSTANT_I64);
 				break;
 			}
+			case DataType::DATE:
 			case DataType::INT32: {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_CONSTANT_I32);
 				break;
@@ -190,6 +193,7 @@ struct null_visitor {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_NULL_I16);
 				break;
 			}
+			case DataType::DATE:
 			case DataType::INT32: {
 				column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_NULL_I32);
 				break;
@@ -303,6 +307,9 @@ void equality_check(const rowgroup_pt& rowgroup, vector<up<ColumnDescriptorT>>& 
 				switch (column_descriptor->data_type) {
 				case DataType::DOUBLE:
 				case DataType::FLS_STR:
+				case DataType::DECIMAL:
+				case DataType::TIMESTAMP:
+				case DataType::DATE:
 				case DataType::INT64:
 				case DataType::INT32:
 				case DataType::INT16:
@@ -642,6 +649,8 @@ bool IsMap1t1(const col_pt& first_col, const col_pt& second_col) {
 
 void PushExternalDictionaryEncoding(ColumnDescriptorT& second_column_descriptor, DataType common_data_type_for_index) {
 	switch (second_column_descriptor.data_type) {
+	case DataType::DECIMAL:
+	case DataType::TIMESTAMP:
 	case DataType::INT64: {
 		switch (common_data_type_for_index) {
 		case DataType::UINT32: {
@@ -661,6 +670,7 @@ void PushExternalDictionaryEncoding(ColumnDescriptorT& second_column_descriptor,
 		}
 		break;
 	}
+	case DataType::DATE:
 	case DataType::INT32: {
 		switch (common_data_type_for_index) {
 		case DataType::UINT32: {

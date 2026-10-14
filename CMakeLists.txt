@@ -6,13 +6,15 @@
 cmake_minimum_required(VERSION 3.22)
 
 # Requirements : -------------------------------------------------------------------------------------------------------
-find_program(CLANG_CXX NAMES clang++ REQUIRED)
-find_program(CLANG_C NAMES clang REQUIRED)
-
-if (CLANG_CXX AND CLANG_C)
-    # Set Clang as the compiler explicitly
-    set(CMAKE_C_COMPILER "${CLANG_C}" CACHE STRING "C Compiler" FORCE)
-    set(CMAKE_CXX_COMPILER "${CLANG_CXX}" CACHE STRING "C++ Compiler" FORCE)
+# Respect the embedding project's compiler/toolchain. Select Clang only for a
+# standalone build without an explicitly configured compiler.
+if (NOT DEFINED CMAKE_CXX_COMPILER)
+    find_program(CLANG_CXX NAMES clang++ REQUIRED)
+    set(CMAKE_CXX_COMPILER "${CLANG_CXX}" CACHE FILEPATH "C++ Compiler")
+endif ()
+if (NOT DEFINED CMAKE_C_COMPILER)
+    find_program(CLANG_C NAMES clang REQUIRED)
+    set(CMAKE_C_COMPILER "${CLANG_C}" CACHE FILEPATH "C Compiler")
 endif ()
 
 
@@ -97,9 +99,16 @@ if (FLAGS)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
 endif ()
 
+# clang-cl interprets -Wall as MSVC /Wall (equivalent to -Weverything).
+# Forward the GNU-style warning group explicitly instead, preserving our normal
+# warning policy without enabling C++98 compatibility diagnostics in C++20 code.
+set(FLS_WALL "-Wall")
+if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    set(FLS_WALL "/clang:-Wall")
+endif ()
 # Flags for warnings and errors:
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -Winconsistent-missing-override -Wshadow -Wconversion -Wnon-virtual-dtor -Wunused -Wpedantic -Woverloaded-virtual -Wshorten-64-to-32")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wshadow -Wconversion")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLS_WALL} -Werror -Winconsistent-missing-override -Wshadow -Wconversion -Wnon-virtual-dtor -Wunused -Wpedantic -Woverloaded-virtual -Wshorten-64-to-32")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FLS_WALL} -Werror -Wshadow -Wconversion")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     message("---------------------------------------------------------------------------------------------------------")
@@ -111,6 +120,7 @@ endif ()
 
 # Options : ------------------------------------------------------------------------------------------------------------
 option(FLS_BUILD_TESTING "Build Test" OFF)
+option(FLS_BUILD_STANDALONE_TESTS "Build regressions without GoogleTest or external datasets" OFF)
 option(FLS_BUILD_BENCHMARKING "Enable Benchmark Build" OFF)
 option(FLS_BUILD_EXAMPLES "Build Examples" OFF)
 option(FLS_BUILD_CUDA "Build FastLanes CUDA reader" OFF)
@@ -174,10 +184,18 @@ if (FLS_BUILD_TESTING OR FLS_BUILD_CUDA OR FLS_ENABLE_FSST_TESTING_AND_BENCHMARK
 
     enable_testing()
 
+    # GoogleTest 1.15's char8_t printer intentionally converts a code unit to
+    # char32_t; recent Clang diagnoses that conversion. Keep the exception
+    # confined to this third-party library, not FastLanes or its tests.
+    check_cxx_compiler_flag("-Wcharacter-conversion" FLS_HAS_CHARACTER_CONVERSION_WARNING)
+
     # Silence clang-tidy warnings from googletest (we don't want to lint third-party code)
     foreach (_t gtest gtest_main gmock gmock_main)
         if (TARGET ${_t})
             set_target_properties(${_t} PROPERTIES CXX_CLANG_TIDY "")
+            if (FLS_HAS_CHARACTER_CONVERSION_WARNING)
+                target_compile_options(${_t} PRIVATE -Wno-error=character-conversion)
+            endif ()
         endif ()
     endforeach ()
 
@@ -315,6 +333,12 @@ if (FLS_BUILD_TESTING)
 
 endif ()
 
+
+# Standalone regressions do not fetch GoogleTest or the dataset repository.
+if (FLS_BUILD_STANDALONE_TESTS)
+    enable_testing()
+    add_subdirectory(test/standalone)
+endif ()
 
 # FSST: ----------------------------------------------------------------------------------------------------------------
 if (FLS_ENABLE_FSST_TESTING_AND_BENCHMARKING)
